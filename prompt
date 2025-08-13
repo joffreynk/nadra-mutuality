@@ -1,0 +1,323 @@
+You are a senior full-stack engineer and software architect. Build a fully functional, production-ready Progressive Web Application (PWA) for a healthcare insurance management platform named "nadra". The deliverable must be a complete, deployable repository scaffold that follows best practices for security, compliance, observability, testing, and maintainability.
+
+---
+
+High-level goals / definition of done
+- Repo runs locally with `npm install` → `npm run dev`.
+- Deployable to Vercel (include config). Provide optional Dockerfile + basic IaC guidance for AWS/GCP.
+- Working authentication flow for all roles and demonstrable RBAC.
+- PWA offline support (IndexedDB + Service Worker) with documented sync strategy and conflict resolution rules.
+- Tests (unit/integration + E2E) and CI workflow (GitHub Actions).
+- README with setup, migration, seed, and deployment instructions.
+- Provide the specific starter files requested in Deliverables.
+
+---
+
+Tech stack & key requirements (must be used)
+- Next.js v15 (App Router). Default to Server Components; use `use client` only where required.
+- React 19.
+- TypeScript with `strict: true`.
+- MySQL via Prisma ORM.
+- NextAuth.js (username/password only; JWT + session) with Prisma adapter.
+- Tailwind CSS (forms & typography plugins).
+- Cloudinary for secure file/document uploads.
+- Zod for input validation (client + server).
+- PWA: Service Worker, `manifest.json`, offline storage via `idb`, background sync.
+- RBAC: Health Owner, Worker (Agency), Pharmacy, Hospital.
+- PDF generation (server-side) and barcode generation for digital cards.
+- Sentry for error tracking (server & client).
+- OpenAPI/Swagger for API docs.
+- Rate limiting on public endpoints.
+- Testing: Jest (unit/integration) + Playwright (E2E).
+- Accessibility: WCAG 2.1 AA.
+
+---
+
+Compliance & security (must be addressed)
+- Architect to be HIPAA/GDPR-considerate:
+  - Encryption at rest (sensitive fields) and TLS in transit.
+  - Minimal PII in logs; redact PII automatically.
+  - Document data retention and right-to-be-forgotten flow.
+- Use bcryptjs for password hashing and implement account lockout after repeated failed attempts.
+- CSRF protection for stateful endpoints; secure HTTP-only cookies for sessions.
+- Audit logs for create/update/approve/login/delete (immutable where possible).
+- Guidance for KMS secret rotation and production key management.
+- Rate limit authentication and public routes.
+
+---
+
+Offline sync & conflict resolution (must be explicit)
+- Use IndexedDB to queue offline operations (create/update/delete).
+- Sync strategy:
+  - Background sync when online.
+  - Default: server-side Last-Write-Wins (LWW) using timestamps.
+  - Critical financial entities (invoices, claims): surface conflict to admin via merge UI and require manual reconciliation or admin override.
+  - Log conflicts and provide audit trail for each resolved conflict.
+- Document conflict policy and provide UI hooks/placeholders for manual conflict resolution.
+
+---
+
+Functional modules (maintain existing functionality)
+Implement CRUD, audit logs, and the following modules:
+
+1. Authentication & RBAC
+   - Signup/login (username/password, admin-invite only — see Onboarding).
+   - JWT + session handling.
+   - Middleware for route protection and role checks.
+   - Audit of login attempts and role changes.
+
+2. User & Organization Management
+   - Health Owner creates agencies (Workers), assigns credentials.
+   - Agencies create pharmacies/hospitals (pending approval by Health Owner).
+   - CRUD + audit logs.
+
+3. Member (Affiliate) Management
+   - CRUD member records (name, DOB, contact, address, ID numbers, passport photo, paidBy, category, coverage%).
+   - Main member ID assignment and affiliate linking (`mainID/number`).
+   - Relationship proof upload to Cloudinary.
+   - Bulk CSV/Excel import & export.
+   - Dashboard filters & status categories (Active, Pending, Lapsed, Cancelled).
+
+4. Card Management
+   - Issue/revoke digital cards (auto-generate number + barcode).
+   - Print-ready server-side PDF template.
+   - Card statuses: Active, Expired, Suspended.
+
+5. Billing & Payments
+   - Auto-generate invoices (monthly/annual) per member/group.
+   - Email delivery with PDF attachments.
+   - Track statuses: Paid, Pending, Overdue; reminders via email/SMS.
+   - Auto-calc member vs insurer share after billing.
+   - Financial reports: revenue, outstanding balances, churn.
+
+6. Partner Network Management
+   - CRUD partner profiles (hospitals, clinics, pharmacies).
+   - Assign services, SLAs, partner-scoped logins with limited permissions.
+
+7. Membership Categories & Rules
+   - Define categories (Basic/Standard/Premium), benefits, covered hospitals, drug lists, waiting periods.
+   - Link dependents and apply inheritance rules.
+
+8. Pharmacy / Medicine Workflow
+   - Real-time coverage check API for pharmacies.
+   - Enter medicines with codes, quantities, prices; calculate co-pay vs insurer.
+   - Maintain approved drug list per category and generate claim records.
+
+9. Hospital Authorization & Claims
+   - Verify coverage before service entry.
+   - Enter treatment details & costs; auto-breakdown liability.
+   - Pharmacy drug requests linked to hospital treatments, visible to connected pharmacies.
+
+---
+
+Operational & Admin Tooling — Conflict rollback & reconciliation UI (detailed)
+- Built-in Conflict Rollback & Reconciliation admin tool for offline-sync and multi-source conflicts.
+- Conflict presentation UI:
+  - **Three-column diff** per entity: Server (current) | Client/Offline (incoming) | Previous (last-known).
+  - Highlight changed fields with inline diffs; show metadata (timestamps, actor, device, source).
+  - Per-field controls: Accept Server, Accept Client, Merge Field (edit), Manual Edit, Create Separate Version.
+  - Bulk actions (accept all server / accept all client).
+- Workflow & safeguards:
+  - Only authorized admin roles may finalize reconciliation for invoices/claims.
+  - Require a reason/comment for reconciliation decisions (stored in audit logs).
+  - Provide undo/rollback capability within a configurable window (e.g., 7 days) that appends audit entries.
+  - Mark conflicts as “Escalate” to generate a support ticket.
+- Auditability & persistence:
+  - Every conflict + resolution action is immutable in audit logs (actor, timestamp, rationale, before/after snapshots).
+  - Exportable conflict reports (CSV/JSON).
+- Automation & policies:
+  - Configurable conflict resolution policies per entity type (LWW for profiles; admin override for invoices).
+  - Safe-preview mode to simulate applying a resolution across downstream records.
+- Developer hooks:
+  - Server-side hook `onConflictResolve(entity, resolution)` for custom merge logic executed atomically and idempotently.
+  - UI components (diff view, resolution modal, audit timeline) for reuse.
+
+---
+
+UX / Product Specifics — chosen options & suggestions
+- Onboarding: **Admin-invite only** (no public signup). All accounts must be created/invited by an admin (Health Owner or assigned Agency admin).
+  - Invitations:
+    - Invitation email contains one-time token and expires (configurable, default 72 hours).
+    - Support resend invite & revoke invite before acceptance.
+    - On acceptance, user sets a password.
+    - Default assigned role is included in invite payload; admins can change roles later.
+  - No account verification step: **no email verification, no TOTP/2FA required** as part of onboarding. (System still uses secure password hashing and account lockout policies.)
+- Additional onboarding & UX suggestions (implement as optional features or admin toggles):
+  - Onboarding checklist for new orgs (seed demo data, configure categories, add partners).
+  - In-app guided tours / contextual help per role.
+  - Demo data toggle for trial environments (clearly labeled).
+  - Help center & support links in UI, plus quick-start guides for each role.
+  - Permissioned admin dashboard with quick actions (issue card, create invoice, start claim).
+  - Mobile-first pages for field users with lightweight forms and clear sync indicators.
+  - Consent & privacy UI: versioned consent records for data collection/sharing.
+  - Notification preferences per user (email, SMS, web-push).
+  - Accessibility modes: high-contrast, font-size control, keyboard-first navigation.
+
+---
+
+Data Modeling & Domain Specifics — chosen multi-tenancy and detailed rules
+- Multi-tenancy: **Option 1 — Single schema multi-tenant** (REQUIRED)
+  - Use a single shared schema. All tenant-scoped tables include `organizationId` (indexed) to partition data.
+  - Global tables (e.g., system configs, code sets) remain shared; tenant-specific configs stored with `organizationId`.
+  - Provide middleware to attach `organizationId` to queries based on authenticated user's context and enforce row-level filtering at the Prisma layer (recommended `prisma` client helpers).
+- Membership & dependent rules (defaults; configurable in admin UI):
+  - Dependent age limit = 25 (configurable).
+  - Maximum dependents per main member (configurable).
+  - Effective date & enrollment windows (configurable per plan).
+  - Waiting periods per benefit (configurable per category; default maternity = 180 days).
+  - Coverage inheritance rules: default to full % inheritance unless overridden.
+- Identity/versioning & soft delete:
+  - Soft deletes using `deletedAt`; archival strategy for long-term storage.
+  - Entity versioning for critical records (invoices, claims, member profiles) via snapshot/version table to enable rollbacks.
+- Financial ledger rules:
+  - Provide a simple balance model by default, but include schema hooks for double-entry ledger migration (commented guidance).
+  - Use idempotency keys for payments & invoice posting.
+  - Currency handling: default currency (configurable); per-currency decimals and rounding rules.
+- Medical/medicine code sets:
+  - Scaffold tables for external code mappings (ICD-10, ATC, RxNorm); allow partner APIs to map local codes to canonical sets.
+- Claims & SLA modeling:
+  - Claim states: Draft → Submitted → Approved → Paid → Rejected → Appealed.
+  - SLA timers and breach logging (configurable per partner).
+- Audit & immutability:
+  - Audit log model storing previous/changed values, actor metadata; support export and immutability policy.
+- Timezone / localization:
+  - Store timestamps in UTC; display in user's timezone; locale-specific formatting for dates/currencies.
+- Archival & retention:
+  - Retention policy configurable per data class; older-than-X-years records are archived to read-optimized tables or cold storage with audit trail.
+
+---
+
+Technical & dev requirements (explicit)
+- Directory layout: `app/`, `components/`, `lib/`, `hooks/`, `prisma/`, `app/api/`, `styles/`, `scripts/`, `tests/`.
+- TypeScript: `strict: true`.
+- Env keys (include in `.env.example`): DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, SENTRY_DSN, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMS_PROVIDER_KEY, JWT_EXPIRATION, NODE_ENV.
+- Prisma: `schema.prisma` with necessary models and migrations + `prisma/seed.ts`.
+- Service Worker + manifest: offline caching + background sync registration.
+- PDF & barcode libs: server-side PDF generation and barcode SVG/PNG generation.
+- OpenAPI: auto-generate spec.
+- Performance: Next/Image + Cloudinary transforms, caching, lazy loading.
+- Logging: structured logs and Sentry.
+- Testing: Jest + Playwright sample tests and coverage target for critical modules.
+- CI/CD: GitHub Actions template; safe migration steps in deploy.
+- Docker & `docker-compose` for local dev sample.
+- Accessibility: include basic a11y checks (axe-core guidance).
+
+---
+
+Deliverables (must be included)
+1. Full file tree of scaffold.
+2. `package.json` (ready to install).
+3. `.env`.
+4. `prisma/schema.prisma` starter (User, Role, Member, Dependent, Card, Invoice, Claim, Partner, Medicine, AuditLog, Document; all tenant-scoped include `organizationId`).
+5. `prisma/seed.ts` seeds roles and default Health Owner user.
+6. `app/layout.tsx` starter and Tailwind theme.
+7. `middleware.ts` implementing NextAuth session check and RBAC guard examples (attach `organizationId`).
+8. Service worker + `manifest.json` + IndexedDB helper (`idb`) + basic conflict resolution UI + admin reconciliation components.
+9. One complete sample feature: Member creation flow demonstrating Server Component + Client Component + API route + Zod validation + Prisma + Cloudinary upload + Sentry error handling + tests + offline queue + sync.
+10. README with local setup, migrations, seeding, tests, build, Vercel deploy, backup/restore & KMS notes.
+11. Postman collection.
+12. GH Actions workflow file for CI.
+13. TODO placeholders for business logic decisions and implement all logics.
+
+---
+
+Quality expectations & acceptance criteria
+- Modular, well-commented, typed code. No `any` leaks in critical modules.
+- Security: no secrets in code; secure cookie settings; input validation and password hashing.
+- Tests: sample tests included and runnable; coverage for critical flows.
+- Docs: README, API docs, inline comments for complex flows (offline sync & conflict resolution).
+- Accessibility: major pages meet WCAG 2.1 AA heuristics.
+
+---
+
+Generation plan (recommended incremental order)
+1. Generate `package.json` + `.env`.
+2. Generate `prisma/schema.prisma` + `prisma/seed.ts`.
+3. Generate `app/layout.tsx`, Tailwind config, global CSS.
+4. Implement NextAuth + Prisma adapter + middleware example.
+5. Implement Member CRUD (server + client + API + tests) including Cloudinary upload and offline sync.
+6. Implement Service Worker + IndexedDB + conflict reconciliation UI.
+7. Implement Card generation (PDF + barcode).
+8. Add Billing basics (invoice generation + email).
+9. GH Actions, Dockerfile.
+10. Finalize README + QA checklist.
+
+
+here's a production-ready package.json
+{
+  "name": "nadra",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=18.16.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "analyze": "cross-env ANALYZE=true next build",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "format": "prettier --write .",
+    "type-check": "tsc --noEmit",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:e2e": "playwright test",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
+    "prepare": "husky install",
+    "postinstall": "prisma generate",
+    "check:env": "node ./scripts/check-env.js",
+    "docker:build": "docker build -t nadra:latest .",
+    "ci": "npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.15.0",
+    "@next-auth/prisma-adapter": "^1.1.0",
+    "axios": "^1.4.0",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^1.63.0",
+    "cloudinary": "^2.5.0",
+    "dotenv": "^16.3.1",
+    "idb": "^7.1.1",
+    "ioredis": "^5.3.2",
+    "jsbarcode": "^3.11.5",
+    "next": "15.4.2",
+    "next-auth": "^4.24.7",
+    "next-pwa": "^5.6.0",
+    "nodemailer": "^6.9.3",
+    "pdf-lib": "^2.2.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "rate-limiter-flexible": "^2.3.9",
+    "sentry-nextjs": "^7.26.0",
+    "swagger-ui-express": "^4.6.3",
+    "tailwindcss": "^3.4.10",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.1",
+    "@testing-library/jest-dom": "^6.2.0",
+    "@testing-library/react": "^15.0.0",
+    "@testing-library/user-event": "^14.5.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.12.7",
+    "@types/react": "^19.0.4",
+    "@types/react-dom": "^19.0.2",
+    "autoprefixer": "^10.4.17",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.1.0",
+    "eslint-config-next": "15.4.2",
+    "husky": "^9.0.11",
+    "jest": "^29.7.0",
+    "lint-staged": "^14.0.0",
+    "postcss": "^8.4.35",
+    "prettier": "^3.2.5",
+    "prisma": "^5.15.0",
+    "ts-jest": "^29.2.4",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.5.4"
+  }
+}

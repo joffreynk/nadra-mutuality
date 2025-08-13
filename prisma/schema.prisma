@@ -1,0 +1,337 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id            String         @id @default(cuid())
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  users         User[]
+  members       Member[]
+  partners      Partner[]
+  invoices      Invoice[]
+  claims        Claim[]
+  dependents    Dependent[]
+  cards         Card[]
+  medicines     Medicine[]
+  auditLogs     AuditLog[]
+  documents     Document[]
+  systemSetting SystemSetting?
+  categories    Category[]
+  hospitalServices HospitalService[]
+  pharmacyServices PharmacyService[]
+  treatments    Treatment[]
+  pharmacyRequests PharmacyRequest[]
+}
+
+enum RoleType {
+  HEALTH_OWNER
+  WORKER
+  PHARMACY
+  HOSPITAL
+}
+
+model User {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  email          String        @unique
+  username       String        @unique
+  name           String?
+  passwordHash   String
+  role           RoleType      @default(WORKER)
+  failedLogins   Int           @default(0)
+  isLocked       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  accounts       Account[]
+  sessions       Session[]
+  auditLogs      AuditLog[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Member {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  mainId          String // main member unique id
+  name            String
+  dob             DateTime
+  contact         String?
+  address         String?
+  idNumber        String?
+  passportPhotoId String? // Cloudinary public id
+  paidBy          String? // employer/self
+  category        String
+  coveragePercent Int          @default(80)
+  status          String       @default("Active")
+  dependents      Dependent[]
+  cards           Card[]
+  invoices        Invoice[]
+  claims          Claim[]
+  treatments      Treatment[]
+  pharmacyRequests PharmacyRequest[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  @@index([organizationId])
+}
+
+model Dependent {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  memberId       String
+  member         Member       @relation(fields: [memberId], references: [id])
+  name           String
+  relationship   String
+  dob            DateTime
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  cards          Card[]
+
+  @@index([organizationId])
+}
+
+model Card {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  memberId       String?
+  member         Member?      @relation(fields: [memberId], references: [id])
+  dependentId    String?
+  dependent      Dependent?   @relation(fields: [dependentId], references: [id])
+  number         String       @unique
+  status         String       @default("Active")
+  issuedAt       DateTime     @default(now())
+  revokedAt      DateTime?
+}
+
+model Invoice {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  memberId       String?
+  member         Member?      @relation(fields: [memberId], references: [id])
+  periodStart    DateTime
+  periodEnd      DateTime
+  amount         Decimal      @db.Decimal(10, 2)
+  status         String       @default("Pending")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Claim {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  memberId       String
+  member         Member       @relation(fields: [memberId], references: [id])
+  details        String
+  amount         Decimal      @db.Decimal(10, 2)
+  state          String       @default("Draft")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Partner {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  type           String // hospital, clinic, pharmacy
+  contact        String?
+  services       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Medicine {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  code           String
+  name           String
+  price          Decimal      @db.Decimal(10, 2)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  treatmentItems TreatmentItem[]
+  pharmacyRequestItems PharmacyRequestItem[]
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  action         String
+  entityType     String
+  entityId       String
+  before         Json?
+  after          Json?
+  ipAddress      String?
+  userAgent      String?
+  reason         String?
+  createdAt      DateTime      @default(now())
+}
+
+model Document {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  ownerType      String
+  ownerId        String
+  filename       String
+  mimeType       String
+  size           Int
+  cloudinaryId   String
+  createdAt      DateTime     @default(now())
+}
+
+model SystemSetting {
+  id                     String       @id @default(cuid())
+  organizationId         String       @unique
+  organization           Organization @relation(fields: [organizationId], references: [id])
+  systemName             String       @default("Nadra Healthcare Insurance")
+  defaultCoveragePercent Int          @default(80)
+  sessionTimeoutMinutes  Int          @default(30)
+  enableTwoFactor        Boolean      @default(true)
+  requireStrongPasswords Boolean      @default(true)
+  enableAccountLockout   Boolean      @default(true)
+  failedLoginThreshold   Int          @default(5)
+  emailNotifications     Boolean      @default(true)
+  smsNotifications       Boolean      @default(false)
+  systemAlerts           Boolean      @default(true)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+}
+
+model Category {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  name             String
+  coveragePercent  Int          @default(80)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+}
+
+model HospitalService {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  code             String
+  name             String
+  category         String?
+  price            Decimal?     @db.Decimal(10, 2)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([organizationId, code])
+  treatmentItems   TreatmentItem[]
+}
+
+model PharmacyService {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  code             String
+  name             String
+  category         String?
+  price            Decimal?     @db.Decimal(10, 2)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([organizationId, code])
+}
+
+model Treatment {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  memberId         String
+  member           Member       @relation(fields: [memberId], references: [id])
+  providerType     String       // hospital or pharmacy
+  status           String       @default("Open")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  items            TreatmentItem[]
+}
+
+model TreatmentItem {
+  id                 String          @id @default(cuid())
+  treatmentId        String
+  treatment          Treatment       @relation(fields: [treatmentId], references: [id])
+  hospitalServiceId  String?
+  hospitalService    HospitalService? @relation(fields: [hospitalServiceId], references: [id])
+  medicineId         String?
+  medicine           Medicine?       @relation(fields: [medicineId], references: [id])
+  quantity           Int             @default(1)
+  unitPrice          Decimal?        @db.Decimal(10, 2)
+}
+
+model PharmacyRequest {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  memberId         String
+  member           Member       @relation(fields: [memberId], references: [id])
+  status           String       @default("Pending")
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  items            PharmacyRequestItem[]
+}
+
+model PharmacyRequestItem {
+  id                 String            @id @default(cuid())
+  requestId          String
+  request            PharmacyRequest   @relation(fields: [requestId], references: [id])
+  medicineId         String
+  medicine           Medicine          @relation(fields: [medicineId], references: [id])
+  quantity           Int               @default(1)
+  unitPrice          Decimal?          @db.Decimal(10, 2)
+}

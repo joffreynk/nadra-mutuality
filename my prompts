@@ -1,0 +1,46 @@
+categories ABCD catery and by default coverages 80%, provide options to create more categories edit  and delete
+members must define if it is dependent or new member add functionality to bulk members from excel
+cards
+dependent members(children and wifes) which are treated as members but have have their cards
+treatment(hospital) we can have multiple treament on one patient which can be named as services(find online all services a hospital can offer in africa and create its table in database as hospital_services), do the same for pharmacy
+invoice
+pharmacy-requests
+hospital/reports vc
+treatments records
+claims/new
+pharmacy/coverage
+pharmacy/claims/new
+pharmacy/medicines
+pharmacy/reports
+cards/new
+billing/new
+/users: edit and delete user options
+
+
+
+DATABASE_URL=mysql://joffreynk:xb34rqs3jkts@localhost:3306/nadra
+
+
+
+
+
+DATABASE_URL=mysql://joffreynk:xb34rqs3jkts@localhost:3306/nadra
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=dev-local-secret
+
+
+
+DATABASE_URL="mysql://joffreynk:xb34rqs3jkts@localhost:3306/nadra"
+NEXTAUTH_URL="http://localhost:3000"
+CLOUDINARY_CLOUD_NAME="your-cloud-name"
+CLOUDINARY_API_KEY="653261121451297"
+CLOUDINARY_API_SECRET="Hvw3J69koJsXZqQDQwHiXf3SIdo"
+SMTP_HOST="localhost"
+SMTP_PORT="1025"
+SMTP_USER=""
+SMTP_PASS=""
+SMS_PROVIDER_KEY=""
+NODE_ENV="development"
+CLOUDINARY_URL=cloudinary://653261121451297:Hvw3J69koJsXZqQDQwHiXf3SIdo@dokobmwqy
+AUTH_SECRET="2031a4df7d4821969ab79889727ee2cddcec53890d27c8fc0df553e51e2d995b"
+NEXTAUTH_SECRET="2031a4df7d4821969ab79889727ee2cddcec53890d27c8fc0df553e51e2d995b"

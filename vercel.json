@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "builds": [{ "src": "package.json", "use": "@vercel/next" }],
+  "env": {
+    "NEXTAUTH_URL": "https://your-vercel-deployment-url",
+    "NEXTAUTH_SECRET": "",
+    "DATABASE_URL": "",
+    "CLOUDINARY_CLOUD_NAME": "",
+    "CLOUDINARY_API_KEY": "",
+    "CLOUDINARY_API_SECRET": ""
+  }
+}
+

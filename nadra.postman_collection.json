@@ -1,0 +1,30 @@
+{
+  "info": {
+    "name": "nadra API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/health"
+      }
+    },
+    {
+      "name": "Create Member",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mainId\": \"M-1001\",\n  \"name\": \"John Doe\",\n  \"dob\": \"1990-01-01\",\n  \"category\": \"Basic\",\n  \"coveragePercent\": 80\n}"
+        },
+        "url": "{{baseUrl}}/api/members"
+      }
+    }
+  ]
+}
+
