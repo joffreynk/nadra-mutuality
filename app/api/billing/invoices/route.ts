@@ -5,10 +5,11 @@ import { prisma } from '@/lib/prisma';
 
 const invoiceSchema = z.object({
   memberId: z.string().nullable().optional(),
+  partnerId: z.string().nullable().optional(),
   periodStart: z.string(),
   periodEnd: z.string(),
   amount: z.number().nonnegative()
-});
+}).refine((d) => !(d.memberId && d.partnerId), { message: 'Choose either member or company' });
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -16,17 +17,41 @@ export async function POST(req: Request) {
   const json = await req.json();
   const parsed = invoiceSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  const { memberId, periodStart, periodEnd, amount } = parsed.data;
+  const { memberId, partnerId, periodStart, periodEnd, amount } = parsed.data;
+  if (!memberId && !partnerId) {
+    return NextResponse.json({ error: 'Invoice must have either member or company' }, { status: 400 });
+  }
+  if (memberId) {
+    // Ensure we don't bill dependents directly by mistake. We only store memberId for main members.
+    const member = await prisma.member.findUnique({ where: { id: memberId } });
+    if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+  }
+  if (partnerId) {
+    const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+    if (!partner) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+  }
   const invoice = await prisma.invoice.create({
     data: {
       organizationId: session.user.organizationId,
       memberId: memberId ?? null,
+      partnerId: partnerId ?? null,
       periodStart: new Date(periodStart),
       periodEnd: new Date(periodEnd),
       amount: amount as any
     }
   });
   return NextResponse.json(invoice);
+}
+
+export async function PUT(req: Request) {
+  // Mark invoice as completed
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  const updated = await prisma.invoice.update({ where: { id }, data: { status: 'Completed' } });
+  return NextResponse.json(updated);
 }
 
 

@@ -62,6 +62,11 @@ export default async function CardsPage() {
         <h2 className="text-xl font-semibold mb-4">Card List</h2>
         <div className="p-4 bg-gray-50 rounded">
           <p className="text-sm text-gray-600">No cards found. Start by issuing cards for your members.</p>
+          <div className="mt-3">
+            <Link className="text-brand underline" href="/cards/new">Issue a card</Link>
+            <span className="mx-2">·</span>
+            <a className="text-brand underline" href="/api/cards/pdf?name=Sample%20Member&number=1234567890" target="_blank">Preview sample PDF</a>
+          </div>
         </div>
       </div>
 

@@ -35,6 +35,11 @@ export default async function MembersPage() {
 
       <div className="bg-white p-6 rounded-lg shadow border">
         <h2 className="text-xl font-semibold mb-4">Member List</h2>
+        <form action="/members" method="get" className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input name="q" placeholder="Type name, Main ID or Company" className="border rounded p-2" />
+          <input name="company" placeholder="Filter by Company" className="border rounded p-2" />
+          <button className="border rounded p-2">Search</button>
+        </form>
         {members.length === 0 ? (
           <div className="p-4 bg-gray-50 rounded">
             <p className="text-sm text-gray-600">No members found. Create your first member.</p>
@@ -46,9 +51,11 @@ export default async function MembersPage() {
                 <tr className="text-left text-gray-600 border-b">
                   <th className="py-2 pr-4">Name</th>
                   <th className="py-2 pr-4">Main ID</th>
+                  <th className="py-2 pr-4">Company</th>
                   <th className="py-2 pr-4">Category</th>
                   <th className="py-2 pr-4">Coverage</th>
                   <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -56,9 +63,14 @@ export default async function MembersPage() {
                   <tr key={m.id} className="border-b last:border-0">
                     <td className="py-2 pr-4">{m.name}</td>
                     <td className="py-2 pr-4">{m.mainId}</td>
+                    <td className="py-2 pr-4">{m.companyName ?? '-'}</td>
                     <td className="py-2 pr-4">{m.category}</td>
                     <td className="py-2 pr-4">{m.coveragePercent}%</td>
                     <td className="py-2 pr-4">{m.status}</td>
+                    <td className="py-2 pr-4">
+                      <Link href={`/members/${m.id}/edit`} className="text-brand underline mr-2">Edit</Link>
+                      <Link href={`/members/${m.id}/delete`} className="text-red-600 underline">Delete</Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -79,6 +91,9 @@ export default async function MembersPage() {
             </Link>
             <Link href="/billing" className="block text-brand hover:text-brand-dark">
               Billing & Invoices
+            </Link>
+            <Link href="/members/bulk" className="block text-brand hover:text-brand-dark">
+              Bulk Import/Update
             </Link>
           </div>
         </div>

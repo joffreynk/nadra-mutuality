@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 
 export default function RequestsClient() {
   const [members, setMembers] = useState<any[]>([]);
+  const [memberQuery, setMemberQuery] = useState('');
   const [medicines, setMedicines] = useState<any[]>([]);
+  const [medQuery, setMedQuery] = useState('');
+  const [typingTimer, setTypingTimer] = useState<any>(null);
   const [memberId, setMemberId] = useState('');
   const [items, setItems] = useState<Array<{ medicineId: string; quantity: number }>>([{ medicineId: '', quantity: 1 }]);
   const [list, setList] = useState<any[]>([]);
@@ -19,15 +22,42 @@ export default function RequestsClient() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (typingTimer) clearTimeout(typingTimer);
+    const t = setTimeout(async () => {
+      const q = medQuery.trim();
+      if (!q) return;
+      const res = await fetch(`/api/pharmacy/medicines?search=${encodeURIComponent(q)}`);
+      if (res.ok) setMedicines(await res.json());
+    }, 3000);
+    setTypingTimer(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medQuery]);
+
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch('/api/pharmacy/requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId, items: items.filter(i => i.medicineId) }) });
+    let finalItems = items.filter(i => i.medicineId);
+    // If user typed a new medicine in the text box and did not choose one, create it and use it for the first item
+    if (medQuery && finalItems.length === 0) {
+      const created = await fetch('/api/pharmacy/medicines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: medQuery.toUpperCase().slice(0, 16), name: medQuery, price: 0 }) });
+      if (created.ok) {
+        const md = await created.json();
+        finalItems = [{ medicineId: md.id, quantity: 1 }];
+      }
+    }
+    const res = await fetch('/api/pharmacy/requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId, items: finalItems }) });
     if (res.ok) {
       setMemberId('');
       setItems([{ medicineId: '', quantity: 1 }]);
       setList([await res.json(), ...list]);
     }
   }
+
+  const filteredMembers = members.filter((m) => {
+    const q = memberQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (m.name?.toLowerCase().includes(q) || m.mainId?.toLowerCase().includes(q) || m.companyName?.toLowerCase().includes(q));
+  });
 
   return (
     <div className="space-y-6">
@@ -43,10 +73,13 @@ export default function RequestsClient() {
         <div className="space-y-2">
           {items.map((it, idx) => (
             <div className="grid grid-cols-3 gap-2" key={idx}>
-              <select className="border rounded p-2" value={it.medicineId} onChange={(e) => { const cp = [...items]; cp[idx].medicineId = e.target.value; setItems(cp); }}>
-                <option value="">Medicine…</option>
-                {medicines.map((m: any) => <option key={m.id} value={m.id}>{m.code} - {m.name}</option>)}
-              </select>
+              <div className="flex gap-2">
+                <input className="border rounded p-2 flex-1" placeholder="Type medicine name" value={medQuery} onChange={(e) => setMedQuery(e.target.value)} />
+                <select className="border rounded p-2" value={it.medicineId} onChange={(e) => { const cp = [...items]; cp[idx].medicineId = e.target.value; setItems(cp); }}>
+                  <option value="">Pick…</option>
+                  {medicines.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
               <input type="number" min={1} className="border rounded p-2" value={it.quantity} onChange={(e) => { const cp = [...items]; cp[idx].quantity = Number(e.target.value); setItems(cp); }} />
               <button type="button" className="border rounded" onClick={() => setItems(items.filter((_, i) => i !== idx))}>Remove</button>
             </div>

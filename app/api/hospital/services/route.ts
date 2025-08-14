@@ -5,10 +5,14 @@ import { prisma } from '@/lib/prisma';
 
 const serviceSchema = z.object({ code: z.string().min(1), name: z.string().min(2), category: z.string().optional(), price: z.coerce.number().optional() });
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const rows = await prisma.hospitalService.findMany({ where: { organizationId: session.user.organizationId }, orderBy: { code: 'asc' } });
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get('search') || undefined;
+  const where: any = { organizationId: session.user.organizationId };
+  if (search) where.name = { contains: search, mode: 'insensitive' };
+  const rows = await prisma.hospitalService.findMany({ where, orderBy: { name: 'asc' }, take: 20 });
   return NextResponse.json(rows);
 }
 
@@ -18,7 +22,11 @@ export async function POST(req: Request) {
   const json = await req.json();
   const parsed = serviceSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  const row = await prisma.hospitalService.create({ data: { organizationId: session.user.organizationId, ...parsed.data, price: parsed.data.price as any } });
+  // Enforce unique name in org
+  const existing = await prisma.hospitalService.findFirst({ where: { organizationId: session.user.organizationId, name: { equals: parsed.data.name, mode: 'insensitive' } } });
+  if (existing) return NextResponse.json(existing);
+  const code = parsed.data.code || parsed.data.name.replace(/[^A-Za-z0-9]+/g, '-').toUpperCase().slice(0, 16);
+  const row = await prisma.hospitalService.create({ data: { organizationId: session.user.organizationId, ...parsed.data, code, price: (parsed.data.price ?? null) as any } });
   return NextResponse.json(row);
 }
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function ClaimsClient() {
   const [claims, setClaims] = useState<any[]>([]);
-  useEffect(() => { (async () => { const r = await fetch('/api/pharmacy/claims'); if (r.ok) setClaims(await r.json()); })(); }, []);
+  useEffect(() => { (async () => { const r = await fetch('/api/pharmacy/claims', { method: 'PUT' }); if (r.ok) setClaims(await r.json()); })(); }, []);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -17,8 +17,7 @@ export default function ClaimsClient() {
           {claims.map((c) => (
             <div key={c.id} className="border rounded p-3">
               <div className="font-medium">{c.id.slice(0,8)} • {new Date(c.createdAt).toLocaleString()} • {c.state}</div>
-              <div>{c.details}</div>
-              <div>Amount: ${c.amount}</div>
+              <div>Period: {new Date(c.periodStart).toLocaleDateString()} → {new Date(c.periodEnd).toLocaleDateString()}</div>
             </div>
           ))}
         </div>

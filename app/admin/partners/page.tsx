@@ -17,9 +17,9 @@ export default async function AdminPartnersPage() {
     orderBy: { createdAt: 'desc' }
   });
 
-  const hospitals = partners.filter(p => p.type.toLowerCase() === 'hospital').length;
-  const pharmacies = partners.filter(p => p.type.toLowerCase() === 'pharmacy').length;
-  const clinics = partners.filter(p => p.type.toLowerCase() === 'clinic' || p.type.toLowerCase() === 'clinics').length;
+  const hospitals = 0;
+  const pharmacies = 0;
+  const clinics = 0;
 
   return (
     <div className="space-y-6">

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 
 export default function NewPartnerPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: '', type: 'Hospital', contact: '', services: '' });
+  const [form, setForm] = useState({ name: '', contact: '', services: '' });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -35,14 +35,7 @@ export default function NewPartnerPage() {
           <label className="block text-sm font-medium">Name</label>
           <input className="w-full border rounded p-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         </div>
-        <div>
-          <label className="block text-sm font-medium">Type</label>
-          <select className="w-full border rounded p-2" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            <option>Hospital</option>
-            <option>Pharmacy</option>
-            <option>Clinic</option>
-          </select>
-        </div>
+        {/* Type removed: partners are companies with arbitrary forms */}
         <div>
           <label className="block text-sm font-medium">Contact</label>
           <input className="w-full border rounded p-2" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />

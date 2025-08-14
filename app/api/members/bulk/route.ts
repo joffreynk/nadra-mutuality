@@ -12,20 +12,33 @@ export async function POST(req: Request) {
   const text = await file.text();
   const lines = text.split(/\r?\n/).filter(Boolean);
   let inserted = 0;
+  // Expected CSV header:
+  // mainId,name,dob,gender,email,contact,address,idNumber,country,companyName,category,coveragePercent,passportPhotoId,passportPhotoUrl
+  const header = lines[0]?.split(',').map(h => h.trim().toLowerCase()) ?? [];
+  const idx = (k: string) => header.indexOf(k);
   for (const line of lines.slice(1)) {
-    const [mainId,name,dob,contact,address,idNumber,category,coverage] = line.split(',');
+    const cols = line.split(',');
+    const mainId = cols[idx('mainid')] ?? '';
+    const name = cols[idx('name')] ?? '';
     if (!mainId || !name) continue;
+    const dob = cols[idx('dob')] ?? '';
     await prisma.member.create({
       data: {
         organizationId,
         mainId,
         name,
-        dob: new Date(dob),
-        contact: contact || undefined,
-        address: address || undefined,
-        idNumber: idNumber || undefined,
-        category: category || 'Basic',
-        coveragePercent: Number(coverage) || 80
+        dob: dob ? new Date(dob) : new Date(),
+        gender: cols[idx('gender')] || undefined,
+        email: cols[idx('email')] || undefined,
+        contact: cols[idx('contact')] || undefined,
+        address: cols[idx('address')] || undefined,
+        idNumber: cols[idx('idnumber')] || undefined,
+        country: cols[idx('country')] || undefined,
+        companyName: cols[idx('companyname')] || undefined,
+        category: cols[idx('category')] || 'Basic',
+        coveragePercent: Number(cols[idx('coveragepercent')] || 80),
+        passportPhotoId: cols[idx('passportphotoid')] || undefined,
+        passportPhotoUrl: cols[idx('passportphotourl')] || undefined
       }
     });
     inserted++;
