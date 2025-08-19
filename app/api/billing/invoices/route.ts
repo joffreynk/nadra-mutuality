@@ -5,11 +5,11 @@ import { prisma } from '@/lib/prisma';
 
 const invoiceSchema = z.object({
   memberId: z.string().nullable().optional(),
-  partnerId: z.string().nullable().optional(),
+  companyId: z.string().nullable().optional(),
   periodStart: z.string(),
   periodEnd: z.string(),
   amount: z.number().nonnegative()
-}).refine((d) => !(d.memberId && d.partnerId), { message: 'Choose either member or company' });
+}).refine((d) => !(d.memberId && d.companyId), { message: 'Choose either member or company' });
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -17,8 +17,8 @@ export async function POST(req: Request) {
   const json = await req.json();
   const parsed = invoiceSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  const { memberId, partnerId, periodStart, periodEnd, amount } = parsed.data;
-  if (!memberId && !partnerId) {
+  const { memberId, companyId, periodStart, periodEnd, amount } = parsed.data;
+  if (!memberId && !companyId) {
     return NextResponse.json({ error: 'Invoice must have either member or company' }, { status: 400 });
   }
   if (memberId) {
@@ -26,15 +26,15 @@ export async function POST(req: Request) {
     const member = await prisma.member.findUnique({ where: { id: memberId } });
     if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
   }
-  if (partnerId) {
-    const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
-    if (!partner) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+  if (companyId) {
+    const company = await prisma.company.findUnique({ where: { id: companyId } });
+    if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
   }
   const invoice = await prisma.invoice.create({
     data: {
       organizationId: session.user.organizationId,
       memberId: memberId ?? null,
-      partnerId: partnerId ?? null,
+      companyId: companyId ?? null,
       periodStart: new Date(periodStart),
       periodEnd: new Date(periodEnd),
       amount: amount as any

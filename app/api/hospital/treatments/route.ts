@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { cloudinary } from '@/lib/cloudinary';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 const itemSchema = z.object({ hospitalServiceId: z.string(), quantity: z.number().int().min(1), unitPrice: z.number().nonnegative() });
 const treatmentSchema = z.object({ memberId: z.string(), items: z.array(itemSchema).min(1) });
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
   const page = pdfDoc.addPage([400, 520]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   page.drawText('Hospital Receipt', { x: 20, y: 490, size: 16, font, color: rgb(0.06, 0.65, 0.91) });
-  page.drawText(`Member: ${member.name} (${member.mainId})`, { x: 20, y: 470, size: 12, font });
+  page.drawText(`Member: ${member.name} (${member.memberCode})`, { x: 20, y: 470, size: 12, font });
   page.drawText(`Coverage: ${coverage}%`, { x: 20, y: 455, size: 12, font });
   let y = 430;
   page.drawText('Service', { x: 20, y, size: 12, font });
@@ -90,16 +91,18 @@ export async function POST(req: Request) {
   page.drawText(`Member Pays: ${memberShare.toFixed(2)}`, { x: 20, y, size: 12, font });
   const pdfBytes = await pdfDoc.save();
 
-  const uploaded: any = await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({ folder: 'nadra/receipts', resource_type: 'raw', format: 'pdf' }, (err, result) => {
-      if (err) reject(err); else resolve(result);
-    });
-    stream.end(Buffer.from(pdfBytes));
-  });
+  const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+  await fs.mkdir(uploadDir, { recursive: true });
 
-  const updated = await prisma.treatment.update({ where: { id: created.id }, data: { receiptCloudinaryId: uploaded.public_id, receiptCloudinaryUrl: uploaded.secure_url } });
+  const filename = `hospital-receipt-${created.id}.pdf`;
+  const filePath = path.join(uploadDir, filename);
+  const fileUrl = `/uploads/${filename}`;
 
-  return NextResponse.json({ ...created, receiptCloudinaryId: updated.receiptCloudinaryId, receiptCloudinaryUrl: updated.receiptCloudinaryUrl });
+  await fs.writeFile(filePath, pdfBytes);
+
+  const updated = await prisma.treatment.update({ where: { id: created.id }, data: { receiptUrl: fileUrl } });
+
+  return NextResponse.json({ ...created, receiptUrl: updated.receiptUrl });
 }
 
 

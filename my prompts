@@ -47,26 +47,29 @@ NEXTAUTH_SECRET="2031a4df7d4821969ab79889727ee2cddcec53890d27c8fc0df553e51e2d995
 
 
 
-I have updated the member UI to request the user must have passport_photo wether a dependent or not, I have checked in database but there is not url and file_id rectify and see if it works
+the following code to generate member ID:
+async function generateMainMemberCode() {
+  const members = await prisma.member.findMany({
+    where: { isDependent: false },
+    orderBy: { id: "asc" }
+  });
 
-for claims, we don't claim individual member, we claim all services in selected range of dates, fields must be claimid starting date, services given to every member, grouping by member, the claim works as a report, the user can not exceed the previous and current claiming date while selecting date.
-update database for members and claims with all logics and UI
+  const nextNumber = members.length + 1;
+  return `Nadra${String(nextNumber).padStart(4, "0")}`;
+}
 
-for new card, you just save the member Id with issuing date, the card Id is the same as the memberID and inseat of scrolling looking for members, change everywhere to be searching by typing memberName or ID or companyname if working for company the card must have membername, memberID passport_photo, phone_number, address and company name if working for a company. all data must be selected from member table
+// Generate a dependent member code, when isdepende is true
+async function generateDependentMemberCode(mainMemberId: number) {
+  const mainMember = await prisma.member.findUnique({
+    where: { id: mainMemberId },
+    include: { dependents: true }
+  });
 
-update partners data to be company's data, it can be created edited and deleted in form of table and must have fields like name, phone_number, email, address and when creating invoice for people working in a company the invoice include all data of that company, member can come on their own or as a company
+  if (!mainMember) throw new Error("Main member not found");
 
-update database, logic and UI for above specifications
+  const dependentCount = mainMember.dependents.length + 1;
+  return `${mainMember.memberCode}/${dependentCount}`;
+}
 
-
-
-each member is treated alone for dependent members, if the main member id is Nadra0005, then the first dependent member id will have Nadra0005/1 the second Nadra0005/2 and so on. each member must have their own IDs, update member creation and card issue
-
-add pricing on every categories to help creating invoice and for invoice functionality add option to complete the pending status and at least invoice must have company name or member but the two cannot miss at once, add typing field to searching and as you type it can auto filter and suggest.
-while creating an invoice, select the member or company and choose ranges of date to pay as we did for hospital and pharmacy then create
-
-change every member loading to member search where it loads members as we type and auto filter
-
-npx prisma generate | cat
-npx prisma migrate dev --name spec_updates | cat
-npm run build | cat
+then remove cloudinary upload files on under public/uploads on local machine then update database to record link only and remove file id as it is locally stored
+update the rest of code and make it work

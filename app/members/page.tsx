@@ -50,7 +50,7 @@ export default async function MembersPage() {
               <thead>
                 <tr className="text-left text-gray-600 border-b">
                   <th className="py-2 pr-4">Name</th>
-                  <th className="py-2 pr-4">Main ID</th>
+                  <th className="py-2 pr-4">ID</th>
                   <th className="py-2 pr-4">Company</th>
                   <th className="py-2 pr-4">Category</th>
                   <th className="py-2 pr-4">Coverage</th>
@@ -62,7 +62,7 @@ export default async function MembersPage() {
                 {members.map((m) => (
                   <tr key={m.id} className="border-b last:border-0">
                     <td className="py-2 pr-4">{m.name}</td>
-                    <td className="py-2 pr-4">{m.mainId}</td>
+                    <td className="py-2 pr-4">{m.memberCode}</td>
                     <td className="py-2 pr-4">{m.companyName ?? '-'}</td>
                     <td className="py-2 pr-4">{m.category}</td>
                     <td className="py-2 pr-4">{m.coveragePercent}%</td>

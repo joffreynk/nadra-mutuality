@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 const createMemberSchema = z.object({
-  mainId: z.string().min(3),
+  memberCode: z.string().min(5), // Changed from mainId
   name: z.string().min(2),
   dob: z.string(),
   gender: z.string().optional(),
@@ -13,36 +13,32 @@ const createMemberSchema = z.object({
   address: z.string().optional(),
   idNumber: z.string().optional(),
   country: z.string().optional(),
-  companyName: z.string().optional(),
-  category: z.string().min(2),
+  companyId: z.string().optional().nullable(),
+  category: z.string(),
   coveragePercent: z.number().min(0).max(100),
-  passportPhotoId: z.string(),
-  passportPhotoUrl: z.string().url()
+  passportPhotoUrl: z.string(),
+  dependentProofUrl: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
+  const organizationId = session.user.organizationId;
+  console.log('organization error', organizationId);
+  if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
+  
   const json = await req.json();
   const parsed = createMemberSchema.safeParse(json);
+  console.log('parse data', parsed);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
 
   const data = parsed.data;
-  const organizationId = (session as any).organizationId as string | null;
-  if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
-
-  // Auto-generate mainId if not provided: Nadra0001 style
-  let mainId = data.mainId;
-  if (!mainId) {
-    const count = await prisma.member.count({ where: { organizationId } });
-    mainId = `Nadra${(count + 1).toString().padStart(4, '0')}`;
-  }
+  console.log('Parsed data', data);
 
   const member = await prisma.member.create({
     data: {
       organizationId,
-      mainId,
+      memberCode: data.memberCode,
       name: data.name,
       dob: new Date(data.dob),
       gender: data.gender,
@@ -51,9 +47,9 @@ export async function POST(req: Request) {
       address: data.address,
       idNumber: data.idNumber,
       country: data.country,
-      companyName: data.companyName,
-      passportPhotoId: data.passportPhotoId,
+      companyId: data.companyId,
       passportPhotoUrl: data.passportPhotoUrl,
+      dependentProofUrl: data.dependentProofUrl,
       category: data.category,
       coveragePercent: data.coveragePercent
     }
@@ -79,16 +75,20 @@ export async function GET(req: Request) {
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q') || undefined;
-  const company = searchParams.get('company') || undefined;
   const where: any = { organizationId };
   if (q) where.OR = [
     { name: { contains: q, mode: 'insensitive' } },
-    { mainId: { contains: q, mode: 'insensitive' } },
-    { companyName: { contains: q, mode: 'insensitive' } }
+    { memberCode: { contains: q, mode: 'insensitive' } }
   ];
-  if (company) where.companyName = { contains: company, mode: 'insensitive' };
-  const members = await prisma.member.findMany({ where, orderBy: { createdAt: 'desc' } });
-  return NextResponse.json(members);
+  const members = await prisma.member.findMany({ 
+    where,
+    include: { company: true },
+    orderBy: { createdAt: 'desc' }
+  });
+  return NextResponse.json(members.map(m => ({
+    ...m,
+    companyName: m.company?.name ?? null
+  })));
 }
 
 

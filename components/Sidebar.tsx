@@ -25,7 +25,7 @@ export default async function Sidebar() {
           <>
             <Section label="Administration" />
             <SidebarLink href="/admin/users" label="Users" />
-            <SidebarLink href="/admin/partners" label="Partners" />
+            <SidebarLink href="/admin/companies" label="Companies" />
             <SidebarLink href="/admin/categories" label="Categories" />
             <SidebarLink href="/admin/settings" label="Settings" />
           </>

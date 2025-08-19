@@ -2,47 +2,56 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-type Member = { id: string; name: string };
-type Partner = { id: string; name: string };
+type Member = { id: string; name: string; mainId: string; company?: { name: string } | null };
+type Company = { id: string; name: string; email?: string; phoneNumber?: string; address?: string };
 
 export default function NewInvoicePage() {
   const router = useRouter();
   const [memberId, setMemberId] = useState('');
-  const [partnerId, setPartnerId] = useState('');
+  const [companyId, setCompanyId] = useState('');
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
   const [amount, setAmount] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch('/api/members');
+      const res = await fetch(`/api/members?q=${memberSearchQuery}`);
       if (res.ok) {
         const all = await res.json();
-        setMembers(all.map((m: any) => ({ id: m.id, name: `${m.name} (${m.mainId})` })));
+        setMembers(all.map((m: any) => ({ id: m.id, name: m.name, mainId: m.mainId, company: m.company })));
       }
-      const pr = await fetch('/api/admin/partners');
-      if (pr.ok) setPartners(await pr.json());
+      const compRes = await fetch(`/api/admin/companies?q=${companySearchQuery}`);
+      if (compRes.ok) setCompanies(await compRes.json());
     })();
-  }, []);
+  }, [memberSearchQuery, companySearchQuery]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
+      const body: any = { periodStart, periodEnd, amount: Number(amount) };
+      if (memberId) body.memberId = memberId;
+      if (companyId) body.companyId = companyId;
+
       const res = await fetch('/api/billing/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memberId: memberId || null, partnerId: partnerId || null, periodStart, periodEnd, amount: Number(amount) })
+        body: JSON.stringify(body)
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed');
+      }
       router.push('/billing');
-    } catch (err) {
-      setError('Failed to create invoice');
+    } catch (err: any) {
+      setError('Failed to create invoice: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -55,16 +64,30 @@ export default function NewInvoicePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Member (optional)</label>
-            <select className="w-full border rounded p-2" value={memberId} onChange={(e) => { setMemberId(e.target.value); if (e.target.value) setPartnerId(''); }}>
+            <input
+              type="text"
+              className="w-full border rounded p-2 mb-2"
+              placeholder="Search by name or ID..."
+              value={memberSearchQuery}
+              onChange={(e) => setMemberSearchQuery(e.target.value)}
+            />
+            <select className="w-full border rounded p-2" value={memberId} onChange={(e) => { setMemberId(e.target.value); if (e.target.value) setCompanyId(''); }}>
               <option value="">None</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.mainId}){m.company && ` - ${m.company.name}`}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium">Company (optional)</label>
-            <select className="w-full border rounded p-2" value={partnerId} onChange={(e) => { setPartnerId(e.target.value); if (e.target.value) setMemberId(''); }}>
+            <input
+              type="text"
+              className="w-full border rounded p-2 mb-2"
+              placeholder="Search by name, email or phone..."
+              value={companySearchQuery}
+              onChange={(e) => setCompanySearchQuery(e.target.value)}
+            />
+            <select className="w-full border rounded p-2" value={companyId} onChange={(e) => { setCompanyId(e.target.value); if (e.target.value) setMemberId(''); }}>
               <option value="">None</option>
-              {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
         </div>

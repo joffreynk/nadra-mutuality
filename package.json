@@ -30,7 +30,6 @@
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.7.0",
-    "cloudinary": "^2.5.1",
     "dotenv": "^16.4.5",
     "idb": "^8.0.0",
     "ioredis": "^5.4.1",

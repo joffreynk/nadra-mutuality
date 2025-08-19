@@ -8,9 +8,9 @@ const createDependentSchema = z.object({
   name: z.string().min(2),
   relationship: z.string().min(2),
   dob: z.string(),
-  passportPhotoId: z.string(),
   passportPhotoUrl: z.string().url(),
-  document: z.object({ filename: z.string(), mimeType: z.string(), size: z.number(), cloudinaryId: z.string() }).optional()
+  document: z.object({ filename: z.string(), mimeType: z.string(), size: z.number(), url: z.string() }).optional(),
+  memberCode: z.string(), // Changed from mainId to memberCode
 });
 
 export async function POST(req: Request) {
@@ -20,50 +20,44 @@ export async function POST(req: Request) {
   const json = await req.json();
   const parsed = createDependentSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  const { parentMemberId, name, relationship, dob, passportPhotoId, passportPhotoUrl, document } = parsed.data;
+  const { parentMemberId, name, relationship, dob, passportPhotoUrl, document, memberCode } = parsed.data;
   const dependent = await prisma.$transaction(async (tx) => {
     const parent = await tx.member.findUnique({ where: { id: parentMemberId } });
     if (!parent) throw new Error('Parent member not found');
-    // Compute dependent mainId as ParentMainId/n where n is next sequence
-    const existing = await tx.dependent.count({ where: { parentMemberId } });
-    const mainId = `${parent.mainId}/${existing + 1}`;
     // Create a member record for the dependent (regular member under a parent)
     const childMember = await tx.member.create({
       data: {
         organizationId,
-        mainId,
+        memberCode,
         name,
         dob: new Date(dob),
-        passportPhotoId,
         passportPhotoUrl,
+        isDependent: true,
         category: parent.category,
         coveragePercent: parent.coveragePercent,
         contact: parent.contact,
         address: parent.address,
         email: parent.email,
         country: parent.country,
-        companyName: parent.companyName,
+        companyId: parent.companyId,
         paidBy: parent.paidBy,
-        status: 'Active'
+        status: 'Active',
       }
-    });
-    const d = await tx.dependent.create({
-      data: { organizationId, parentMemberId, childMemberId: childMember.id, mainId }
     });
     if (document) {
       await tx.document.create({
         data: {
           organizationId,
           ownerType: 'Dependent',
-          ownerId: d.id,
+          ownerId: childMember.id,
           filename: document.filename,
           mimeType: document.mimeType,
           size: document.size,
-          cloudinaryId: document.cloudinaryId
+          url: document.url,
         }
       });
     }
-    return d;
+    return childMember;
   });
   await prisma.auditLog.create({
     data: { organizationId, userId: session.user.id, action: 'dependent_create', entityType: 'Dependent', entityId: dependent.id, after: dependent }
@@ -71,12 +65,26 @@ export async function POST(req: Request) {
   return NextResponse.json(dependent);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const organizationId = session.user.organizationId;
-  const dependents = await prisma.dependent.findMany({ where: { organizationId } });
-  return NextResponse.json(dependents);
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get('q') || '';
+
+  const members = await prisma.member.findMany({
+    where: {
+      organizationId,
+      isDependent: false,
+      OR: [
+        { name: { contains: q } },
+        { memberCode: { contains: q } }
+      ]
+    },
+    select: { id: true, name: true, memberCode: true },
+    take: 10,
+  });
+  return NextResponse.json(members);
 }
 
 

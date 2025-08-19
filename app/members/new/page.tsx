@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
+import { generateMainMemberCode, generateDependentMemberCode } from '@/lib/memberCode';
 
 const memberSchema = z.object({
-  mainId: z.string().min(3),
+  memberCode: z.string().optional(),
   name: z.string().min(2),
   dob: z.string(),
   gender: z.string().optional(),
@@ -12,19 +13,26 @@ const memberSchema = z.object({
   address: z.string().optional(),
   idNumber: z.string().optional(),
   country: z.string().optional(),
-  companyName: z.string().optional(),
-  category: z.string().min(2),
+  companyId: z.string().optional().nullable(),
+  category: z.string().min(1),
   coveragePercent: z.coerce.number().min(0).max(100),
-  passportPhotoId: z.string().optional(),
-  passportPhotoUrl: z.string().url().optional()
+  passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
+  dependentProofUrl: z.string().optional().nullable(),
+});
+
+const dependentSchema = memberSchema.extend({
+  memberCode: z.string().min(5),
+  parentMemberId: z.string().min(1, 'Parent member is required'),
+  relationship: z.string().min(1, 'Relationship is required'),
 });
 
 type Category = { id: string; name: string; coveragePercent: number };
-type SimpleMember = { id: string; name: string };
+type SimpleMember = { id: string; name: string; memberCode: string };
+type Company = { id: string; name: string; };
 
 export default function NewMemberPage() {
   const [form, setForm] = useState<any>({
-    mainId: '',
+    memberCode: '',
     name: '',
     dob: '',
     gender: '',
@@ -40,10 +48,14 @@ export default function NewMemberPage() {
   const [isDependent, setIsDependent] = useState(false);
   const [relationship, setRelationship] = useState('Child');
   const [parentMemberId, setParentMemberId] = useState('');
+  const [parentMemberSearchQuery, setParentMemberSearchQuery] = useState('');
   const [passportFile, setPassportFile] = useState<File | null>(null);
   const [dependentProof, setDependentProof] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [members, setMembers] = useState<SimpleMember[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -51,69 +63,90 @@ export default function NewMemberPage() {
     (async () => {
       const cres = await fetch('/api/admin/categories');
       if (cres.ok) setCategories(await cres.json());
-      const mres = await fetch('/api/members');
-      if (mres.ok) setMembers((await mres.json()).map((m: any) => ({ id: m.id, name: `${m.name} (${m.mainId})` })));
+      const mres = await fetch(`/api/members?q=${parentMemberSearchQuery}`);
+      if (mres.ok) {
+        setMembers((await mres.json()).map((m: any) => ({ id: m.id, name: `${m.name} (${m.memberCode})`, memberCode: m.memberCode })));
+      }
+      const compRes = await fetch(`/api/admin/companies?q=${companySearchQuery}`);
+      if (compRes.ok) setCompanies(await compRes.json());
     })();
-  }, []);
+  }, [parentMemberSearchQuery, companySearchQuery]);
+
+  useEffect(() => {
+        if (isDependent) {
+      (async () => {
+        const code = await generateDependentMemberCode(parentMemberId);
+        setForm((prev: any) => ({ ...prev, memberCode: code }));
+      })();
+    } else {
+      setForm((prev: any) => ({ ...prev, memberCode: '' }));
+    }
+  }, [parentMemberId, members, isDependent]);
+
+  useEffect(() => {
+    if (!isDependent) {
+      (async () => {
+        const code = await generateMainMemberCode();
+        setForm((prev: any) => ({ ...prev, memberCode: code }));
+      })();
+    } else {
+      setForm((prev: any) => ({ ...prev, memberCode: '' }));
+    }
+  }, [isDependent]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
     try {
-      if (isDependent) {
-        if (!parentMemberId) throw new Error('Select parent member');
-        if (!passportFile) throw new Error('Passport photo is required');
-        // Upload passport photo
-        const fdPhoto = new FormData();
-        fdPhoto.append('file', passportFile);
-        const upPhoto = await fetch('/api/uploads', { method: 'POST', body: fdPhoto });
-        if (!upPhoto.ok) throw new Error('Upload failed');
-        const upPhotoJ = await upPhoto.json();
-        // Upload proof if provided
-        let documentPayload: any = null;
-        if (dependentProof) {
+      let defproof = '';
+      // Handle passport photo first to ensure data is available for validation
+      if (!passportFile) throw new Error('Passport photo is required');
+      const fd = new FormData();
+      fd.append('file', passportFile);
+      const up = await fetch('/api/uploads', { method: 'POST', body: fd });
+      if (!up.ok) throw new Error('Upload failed');
+      const upj = await up.json();
+
+      if (isDependent){
+          if (!dependentProof) throw new Error('Dependent proof is required');
           const fd = new FormData();
           fd.append('file', dependentProof);
-          const up = await fetch('/api/uploads', { method: 'POST', body: fd });
-          if (!up.ok) throw new Error('Upload failed');
-          const upj = await up.json();
-          documentPayload = { filename: dependentProof.name, mimeType: dependentProof.type, size: dependentProof.size, cloudinaryId: upj.public_id };
-        }
-        const res = await fetch('/api/dependents', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ parentMemberId, name: form.name, relationship, dob: form.dob, passportPhotoId: upPhotoJ.public_id, passportPhotoUrl: upPhotoJ.url, document: documentPayload })
-        });
-        if (!res.ok) throw new Error('Failed');
-      } else {
-        const parsed = memberSchema.safeParse(form);
-        if (!parsed.success) {
-          setError('Please check the form');
-          return;
-        }
-        // Handle passport photo
-        if (!passportFile) throw new Error('Passport photo is required');
-        const fd = new FormData();
-        fd.append('file', passportFile);
-        const up = await fetch('/api/uploads', { method: 'POST', body: fd });
-        if (!up.ok) throw new Error('Upload failed');
-        const upj = await up.json();
-        parsed.data.passportPhotoId = upj.public_id;
-        parsed.data.passportPhotoUrl = upj.url;
-        const res = await fetch('/api/members', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(parsed.data)
-        });
-        if (!res.ok) throw new Error('Failed');
+          const dp = await fetch('/api/uploads', { method: 'POST', body: fd });
+          if (!dp.ok) throw new Error('Upload failed');
+         const dpj = await dp.json();
+         defproof = dpj.url;
       }
+
+
+      const parsed = memberSchema.safeParse({ ...form, passportPhotoUrl: upj.url, dependentProofUrl: defproof });
+      if (!parsed.success) {
+        const fieldErrors = parsed.error.flatten().fieldErrors;
+        const errorMessages = Object.entries(fieldErrors)
+          .map(([field, errors]) => `${field}: ${errors?.join(', ')}`)
+          .join('; ');
+        setError(`Please check the form: ${errorMessages}`);
+        return;
+      }
+
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed.data)
+      });
+      console.log(res);
+      
+      if (!res.ok) throw new Error('Failed');
       setSuccess('Member created');
-      setForm({ mainId: '', name: '', dob: '', contact: '', address: '', idNumber: '', category: 'Basic', coveragePercent: 100 });
+      setForm({ memberCode: '', name: '', dob: '', contact: '', address: '', idNumber: '', category: 'Basic', coveragePercent: 100 });
       setParentMemberId('');
       setPassportFile(null);
       setDependentProof(null);
+      setSelectedCompanyId(null); // Clear selected company
+      setCompanySearchQuery(''); // Clear company search
     } catch (err) {
+      console.log('error',err);
+      
       setError('Failed to create member');
     }
   }
@@ -132,6 +165,13 @@ export default function NewMemberPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium">Parent Member</label>
+              <input
+                type="text"
+                className="mt-1 w-full border rounded p-2"
+                placeholder="Search by ID or name..."
+                value={parentMemberSearchQuery}
+                onChange={(e) => setParentMemberSearchQuery(e.target.value)}
+              />
               <select className="mt-1 w-full border rounded p-2" value={parentMemberId} onChange={(e) => setParentMemberId(e.target.value)}>
                 <option value="">Select...</option>
                 {members.map((m) => (
@@ -150,14 +190,24 @@ export default function NewMemberPage() {
             </div>
           </div>
         )}
-        <div>
-          <label className="block text-sm font-medium">Main ID</label>
-          <input className="mt-1 w-full border rounded p-2" value={form.mainId} onChange={(e) => setForm({ ...form, mainId: e.target.value })} />
-        </div>
+        {!isDependent && (
+          <div>
+            <label className="block text-sm font-medium">Main ID</label>
+            <input className="mt-1 w-full border rounded p-2" value={form.memberCode} disabled />
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium">Name</label>
           <input className="mt-1 w-full border rounded p-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </div>
+        {isDependent && (
+          <>
+            <div>
+              <label className="block text-sm font-medium">Dependent Member Code</label>
+              <input className="mt-1 w-full border rounded p-2" value={form.memberCode} disabled />
+            </div>
+          </>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Gender</label>
@@ -210,14 +260,41 @@ export default function NewMemberPage() {
             <input className="mt-1 w-full border rounded p-2" value={form.country ?? ''} onChange={(e) => setForm({ ...form, country: e.target.value })} />
           </div>
           <div>
-            <label className="block text-sm font-medium">Company Name (if employed)</label>
-            <input className="mt-1 w-full border rounded p-2" value={form.companyName ?? ''} onChange={(e) => setForm({ ...form, companyName: e.target.value })} />
+            <label className="block text-sm font-medium">Company (if employed)</label>
+            <input
+              type="text"
+              className="mt-1 w-full border rounded p-2"
+              placeholder="Search or type to add new company..."
+              value={companySearchQuery}
+              onChange={(e) => setCompanySearchQuery(e.target.value)}
+            />
+            <select className="mt-1 w-full border rounded p-2" value={selectedCompanyId ?? ''} onChange={(e) => setSelectedCompanyId(e.target.value)}>
+              <option value="">Select...</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {companySearchQuery && !companies.some(c => c.name.toLowerCase() === companySearchQuery.toLowerCase()) && (
+              <button type="button" onClick={async () => {
+                try {
+                  const res = await fetch('/api/admin/companies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: companySearchQuery }) });
+                  if (!res.ok) throw new Error('Failed to create company');
+                  const newCompany = await res.json();
+                  setCompanies([...companies, newCompany]);
+                  setSelectedCompanyId(newCompany.id);
+                  setCompanySearchQuery('');
+                  alert('New company created and selected!');
+                } catch (err: any) {
+                  alert(`Error creating company: ${err.message}`);
+                }
+              }} className="text-brand text-sm mt-1">Create new company &quot;{companySearchQuery}&quot;</button>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Passport Photo</label>
-            <input type="file" accept="image/*" className="mt-1 w-full border rounded p-2" onChange={(e) => setPassportFile(e.target.files?.[0] ?? null)} />
+            <input type="file" accept="image/*" className="mt-1 w-full border rounded p-2" onChange={(e) => setPassportFile(e.target.files?.[0] ?? null)} required />
           </div>
           {isDependent && (
             <div>

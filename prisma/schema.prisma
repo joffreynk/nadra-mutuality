@@ -14,11 +14,9 @@ model Organization {
   updatedAt        DateTime          @updatedAt
   users            User[]
   members          Member[]
-  partners         Partner[]
+  companies        Company[]
   invoices         Invoice[]
   claims           Claim[]
-  dependents       Dependent[]
-  cards            Card[]
   medicines        Medicine[]
   auditLogs        AuditLog[]
   documents        Document[]
@@ -93,25 +91,24 @@ model Member {
   id               String            @id @default(cuid())
   organizationId   String
   organization     Organization      @relation(fields: [organizationId], references: [id])
-  mainId           String // main member unique id
+  memberCode       String            @unique
   name             String
   dob              DateTime
   contact          String? // phone
   email            String?
   address          String?
   idNumber         String?
-  passportPhotoId  String? // Cloudinary public id
   passportPhotoUrl String?
+  dependentProofUrl String?
+  isDependent      Boolean           @default(false)
   gender           String?
   country          String?
-  companyName      String?
+  companyId        String?
+  company          Company?          @relation(fields: [companyId], references: [id])
   paidBy           String? // employer/self
   category         String
   coveragePercent  Int               @default(80)
   status           String            @default("Active")
-  dependents       Dependent[]      @relation("ParentToDependents")
-  childDependent   Dependent?       @relation("ChildMember")
-  cards            Card[]
   invoices         Invoice[]
   claims           Claim[]
   treatments       Treatment[]
@@ -123,51 +120,34 @@ model Member {
   @@index([organizationId])
 }
 
-model Dependent {
-  id               String       @id @default(cuid())
-  organizationId   String
-  organization     Organization @relation(fields: [organizationId], references: [id])
-  parentMemberId   String
-  parentMember     Member       @relation("ParentToDependents", fields: [parentMemberId], references: [id])
-  childMemberId    String       @unique
-  childMember      Member       @relation("ChildMember", fields: [childMemberId], references: [id])
-  mainId           String
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  deletedAt        DateTime?
-  cards            Card[]
-
-  @@index([organizationId])
-}
-
-model Card {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  memberId       String?
-  member         Member?      @relation(fields: [memberId], references: [id])
-  dependentId    String?
-  dependent      Dependent?   @relation(fields: [dependentId], references: [id])
-  number         String       @unique
-  status         String       @default("Active")
-  issuedAt       DateTime     @default(now())
-  revokedAt      DateTime?
-}
-
 model Invoice {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   memberId       String?
   member         Member?      @relation(fields: [memberId], references: [id])
-  partnerId      String?
-  partner        Partner?     @relation(fields: [partnerId], references: [id])
+  companyId      String?
+  company        Company?     @relation(fields: [companyId], references: [id])
   periodStart    DateTime
   periodEnd      DateTime
   amount         Decimal      @db.Decimal(10, 2)
   status         String       @default("Pending")
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+model Company {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  phoneNumber    String?
+  email          String?
+  address        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  members        Member[]
+  invoices       Invoice[]
 }
 
 model Claim {
@@ -181,21 +161,6 @@ model Claim {
   updatedAt      DateTime     @updatedAt
   Member         Member?      @relation(fields: [memberId], references: [id])
   memberId       String?
-}
-
-model Partner {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  name           String
-  contact        String?
-  phoneNumber    String?
-  email          String?
-  address        String?
-  services       String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  Invoice        Invoice[]
 }
 
 model Medicine {
@@ -237,7 +202,7 @@ model Document {
   filename       String
   mimeType       String
   size           Int
-  cloudinaryId   String
+  url            String // Changed from cloudinaryId to url
   createdAt      DateTime     @default(now())
 }
 
@@ -312,8 +277,7 @@ model Treatment {
   totalAmount          Decimal?        @db.Decimal(10, 2)
   insurerShare         Decimal?        @db.Decimal(10, 2)
   memberShare          Decimal?        @db.Decimal(10, 2)
-  receiptCloudinaryId  String?
-  receiptCloudinaryUrl String?
+  receiptUrl           String? // Changed from receiptCloudinaryId to receiptUrl
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   items                TreatmentItem[]
@@ -341,8 +305,7 @@ model PharmacyRequest {
   totalAmount          Decimal?              @db.Decimal(10, 2)
   insurerShare         Decimal?              @db.Decimal(10, 2)
   memberShare          Decimal?              @db.Decimal(10, 2)
-  receiptCloudinaryId  String?
-  receiptCloudinaryUrl String?
+  receiptUrl           String? // Changed from receiptCloudinaryId to receiptUrl
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   items                PharmacyRequestItem[]

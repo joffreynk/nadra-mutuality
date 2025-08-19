@@ -43,8 +43,8 @@ export default function Dashboard({ session }: DashboardProps) {
         />
         <DashboardCard
           title="Partner Network"
-          description="Manage hospitals, clinics, pharmacies"
-          link="/admin/partners"
+          description="Manage your business partners and their services."
+          link="/admin/companies"
           icon="🏥"
         />
         <DashboardCard

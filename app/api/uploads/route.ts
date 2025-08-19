@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { cloudinary } from '@/lib/cloudinary';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -10,19 +11,18 @@ export async function POST(req: Request) {
   const file = form.get('file');
   if (!(file instanceof File)) return NextResponse.json({ error: 'File required' }, { status: 400 });
 
+  const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+  await fs.mkdir(uploadDir, { recursive: true });
+
+  const filename = `${Date.now()}-${file.name}`;
+  const filePath = path.join(uploadDir, filename);
+  const fileUrl = `/uploads/${filename}`;
+
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
+  await fs.writeFile(filePath, buffer);
 
-  // Since we can't await upload_stream directly, use promise wrapper
-  const uploaded = await new Promise<any>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({ folder: 'nadra' }, (err, result) => {
-      if (err) reject(err);
-      else resolve(result);
-    });
-    stream.end(buffer);
-  });
-
-  return NextResponse.json({ public_id: uploaded.public_id, url: uploaded.secure_url });
+  return NextResponse.json({ url: fileUrl });
 }
 
 
