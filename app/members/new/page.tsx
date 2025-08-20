@@ -1,13 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
-import { generateMainMemberCode, generateDependentMemberCode } from '@/lib/memberCode';
-
 const memberSchema = z.object({
-  memberCode: z.string().optional(),
+  memberCode: z.string().min(5, 'All members must be uniquely identified'),
   name: z.string().min(2),
   dob: z.string(),
-  gender: z.string().optional(),
+  gender: z.string().min(1),
   email: z.string().email().optional(),
   contact: z.string().optional(),
   address: z.string().optional(),
@@ -15,9 +13,10 @@ const memberSchema = z.object({
   country: z.string().optional(),
   companyId: z.string().optional().nullable(),
   category: z.string().min(1),
-  coveragePercent: z.coerce.number().min(0).max(100),
+  coveragePercent: z.coerce.number().min(20).max(100),
   passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
   dependentProofUrl: z.string().optional().nullable(),
+  isDependent: z.boolean().default(false),
 });
 
 const dependentSchema = memberSchema.extend({
@@ -26,78 +25,102 @@ const dependentSchema = memberSchema.extend({
   relationship: z.string().min(1, 'Relationship is required'),
 });
 
-type Category = { id: string; name: string; coveragePercent: number };
-type SimpleMember = { id: string; name: string; memberCode: string };
+type Category = { id: string; name: string; coveragePercent: number, category: string};
+type SimpleMember = { id: string; name: string; memberCode: string, isDependent: boolean, coveragePercent: number, category: string, companyId: string };
 type Company = { id: string; name: string; };
+
 
 export default function NewMemberPage() {
   const [form, setForm] = useState<any>({
     memberCode: '',
     name: '',
     dob: '',
-    gender: '',
+    gender: 'Male',
     email: '',
     contact: '',
     address: '',
     idNumber: '',
     country: '',
-    companyName: '',
-    category: 'A',
-    coveragePercent: 100
+    companyId: '',
+    category: '',
+    coveragePercent: 100,
+    isDependent: false,
   });
   const [isDependent, setIsDependent] = useState(false);
   const [relationship, setRelationship] = useState('Child');
   const [parentMemberId, setParentMemberId] = useState('');
+  const [currentMember, setCurrentMember] = useState<SimpleMember | null>(null);
   const [parentMemberSearchQuery, setParentMemberSearchQuery] = useState('');
   const [passportFile, setPassportFile] = useState<File | null>(null);
   const [dependentProof, setDependentProof] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [members, setMembers] = useState<SimpleMember[]>([]);
+  const [parents, setParents] = useState<SimpleMember[]>([]);
+  const [dependents, setDependents] = useState<SimpleMember[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companySearchQuery, setCompanySearchQuery] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
+
+  const fetchData = async () => {
       const cres = await fetch('/api/admin/categories');
       if (cres.ok) setCategories(await cres.json());
-      const mres = await fetch(`/api/members?q=${parentMemberSearchQuery}`);
+      const q = parentMemberSearchQuery.trim();
+      const url = q ? `/api/members?q=${encodeURIComponent(q)}` : '/api/members';
+      const mres = await fetch(url);
       if (mres.ok) {
-        setMembers((await mres.json()).map((m: any) => ({ id: m.id, name: `${m.name} (${m.memberCode})`, memberCode: m.memberCode })));
+        const newmembers = await mres.json();
+        setMembers(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })));
+        setParents(newmembers.map((m:any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })).filter((m:any) => !m.isDependent));
+        setDependents(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })).filter((m:any) => m.isDependent));
+        const newcode = `Nadra${String(parents.length + 1).padStart(4, "0")}`;
+        setForm((prev: any) => ({ ...prev, memberCode: newcode }));
       }
       const compRes = await fetch(`/api/admin/companies?q=${companySearchQuery}`);
       if (compRes.ok) setCompanies(await compRes.json());
-    })();
+    };
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+    fetchData(); // your fetch function that calls /api/members
+  }, 350);
+  return () => clearTimeout(id);
   }, [parentMemberSearchQuery, companySearchQuery]);
 
-  useEffect(() => {
-        if (isDependent) {
-      (async () => {
-        const code = await generateDependentMemberCode(parentMemberId);
-        setForm((prev: any) => ({ ...prev, memberCode: code }));
-      })();
-    } else {
-      setForm((prev: any) => ({ ...prev, memberCode: '' }));
-    }
-  }, [parentMemberId, members, isDependent]);
 
-  useEffect(() => {
-    if (!isDependent) {
-      (async () => {
-        const code = await generateMainMemberCode();
-        setForm((prev: any) => ({ ...prev, memberCode: code }));
-      })();
-    } else {
-      setForm((prev: any) => ({ ...prev, memberCode: '' }));
-    }
-  }, [isDependent]);
+
+// Replace your second useEffect with this
+useEffect(() => {
+  if (isDependent) {
+    // find parent based on the current parents array (derived from members)
+    const parent = parents.find(m => m.memberCode === parentMemberId) || null;
+    setCurrentMember(parent);
+    // compute dependent index/count using the dependents array (derived from members)
+    const code = dependents.filter(me => me.memberCode.includes(parentMemberId)).length + 1;
+    const newcode = `${parentMemberId}/${code}`;
+    // Use parent directly (not currentMember which hasn't updated yet)
+    setForm((prev:any) => ({
+      ...prev,
+      memberCode: newcode,
+      category: parent?.category ?? prev.category,
+      coveragePercent: parent?.coveragePercent ?? prev.coveragePercent,
+      companyId: parent?.companyId ?? prev.companyId,
+    }));
+  } else {
+    // non-dependent — recompute top-level code from parents count
+        const newcode = `Nadra${String(parents.length + 1).padStart(4, '0')}`;
+        setForm((prev:any) => ({ ...prev, memberCode: newcode }));
+        setCurrentMember(null);
+      }
+    }, [parentMemberId, isDependent, currentMember, parents, dependents]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
     try {
       let defproof = '';
       // Handle passport photo first to ensure data is available for validation
@@ -134,8 +157,6 @@ export default function NewMemberPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsed.data)
       });
-      console.log(res);
-      
       if (!res.ok) throw new Error('Failed');
       setSuccess('Member created');
       setForm({ memberCode: '', name: '', dob: '', contact: '', address: '', idNumber: '', category: 'Basic', coveragePercent: 100 });
@@ -144,13 +165,15 @@ export default function NewMemberPage() {
       setDependentProof(null);
       setSelectedCompanyId(null); // Clear selected company
       setCompanySearchQuery(''); // Clear company search
+      await fetchData(); // Refresh data
     } catch (err) {
-      console.log('error',err);
-      
       setError('Failed to create member');
     }
-  }
 
+    
+  }
+  
+  console.log(form);
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-semibold mb-4">Create Member or Dependent</h1>
@@ -174,8 +197,8 @@ export default function NewMemberPage() {
               />
               <select className="mt-1 w-full border rounded p-2" value={parentMemberId} onChange={(e) => setParentMemberId(e.target.value)}>
                 <option value="">Select...</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
+                {parents.map((m) => (
+                  <option key={m.memberCode} value={m.memberCode}>{m.name}</option>
                 ))}
               </select>
             </div>
@@ -190,32 +213,17 @@ export default function NewMemberPage() {
             </div>
           </div>
         )}
-        {!isDependent && (
-          <div>
-            <label className="block text-sm font-medium">Main ID</label>
-            <input className="mt-1 w-full border rounded p-2" value={form.memberCode} disabled />
-          </div>
-        )}
         <div>
           <label className="block text-sm font-medium">Name</label>
           <input className="mt-1 w-full border rounded p-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </div>
-        {isDependent && (
-          <>
-            <div>
-              <label className="block text-sm font-medium">Dependent Member Code</label>
-              <input className="mt-1 w-full border rounded p-2" value={form.memberCode} disabled />
-            </div>
-          </>
-        )}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Gender</label>
-            <select className="mt-1 w-full border rounded p-2" value={form.gender ?? ''} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
-              <option value="">Select...</option>
-              <option>Male</option>
-              <option>Female</option>
-              <option>Other</option>
+            <select className="mt-1 w-full border rounded p-2" value={form.gender ?? 'Male'} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
             </select>
           </div>
           <div>
@@ -227,7 +235,9 @@ export default function NewMemberPage() {
           <label className="block text-sm font-medium">Date of Birth</label>
           <input type="date" className="mt-1 w-full border rounded p-2" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        {
+          !isDependent ? (
+            <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Category</label>
             <select className="mt-1 w-full border rounded p-2" value={form.category} onChange={(e) => {
@@ -241,9 +251,11 @@ export default function NewMemberPage() {
           </div>
           <div>
             <label className="block text-sm font-medium">Coverage %</label>
-            <input type="number" className="mt-1 w-full border rounded p-2" value={form.coveragePercent} onChange={(e) => setForm({ ...form, coveragePercent: Number(e.target.value) })} />
+            <input type="number" className="mt-1 w-full border rounded p-2" value={form.coveragePercent} onChange={(e) => setForm({ ...form, coveragePercent:  Number(e.target.value)})} />
           </div>
         </div>
+          ) : null
+        }
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Contact</label>
@@ -254,7 +266,8 @@ export default function NewMemberPage() {
             <input className="mt-1 w-full border rounded p-2" value={form.idNumber} onChange={(e) => setForm({ ...form, idNumber: e.target.value })} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        {!isDependent && (
+          <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Country</label>
             <input className="mt-1 w-full border rounded p-2" value={form.country ?? ''} onChange={(e) => setForm({ ...form, country: e.target.value })} />
@@ -268,7 +281,10 @@ export default function NewMemberPage() {
               value={companySearchQuery}
               onChange={(e) => setCompanySearchQuery(e.target.value)}
             />
-            <select className="mt-1 w-full border rounded p-2" value={selectedCompanyId ?? ''} onChange={(e) => setSelectedCompanyId(e.target.value)}>
+            <select className="mt-1 w-full border rounded p-2" value={selectedCompanyId ?? ''} onChange={(e) => {
+              setSelectedCompanyId(e.target.value);
+              setForm({ ...form, companyId: e.target.value })
+            }}>
               <option value="">Select...</option>
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -291,6 +307,7 @@ export default function NewMemberPage() {
             )}
           </div>
         </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Passport Photo</label>

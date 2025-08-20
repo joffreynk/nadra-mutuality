@@ -24,6 +24,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const organizationId = session.user.organizationId;
+  if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   const json = await req.json();
   const parsed = updateSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
@@ -38,6 +39,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const organizationId = session.user.organizationId;
+  if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   const before = await prisma.member.findFirst({ where: { id: params.id, organizationId } });
   if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   await prisma.member.update({ where: { id: params.id }, data: { deletedAt: new Date(), status: 'Deleted' } });

@@ -47,3 +47,24 @@
       setError('Failed to create member');
     }
   }
+
+
+
+
+
+    useEffect(() => {
+        if(isDependent) {
+      (async () => {
+
+        
+        const code = await generateDependentMemberCode(parentMemberId);
+        setForm((prev: any) => ({ ...prev, memberCode: code }));
+      })();
+    } else {
+      (async () => {
+        const code = await generateMainMemberCode();
+        console.log('running member code', code);
+        setForm((prev: any) => ({ ...prev, memberCode: code }));
+      })();
+    }
+  }, [parentMemberId, members, isDependent]);

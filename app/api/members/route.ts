@@ -7,7 +7,7 @@ const createMemberSchema = z.object({
   memberCode: z.string().min(5), // Changed from mainId
   name: z.string().min(2),
   dob: z.string(),
-  gender: z.string().optional(),
+  gender: z.string().min(1),
   email: z.string().email().optional(),
   contact: z.string().optional(),
   address: z.string().optional(),
@@ -16,24 +16,22 @@ const createMemberSchema = z.object({
   companyId: z.string().optional().nullable(),
   category: z.string(),
   coveragePercent: z.number().min(0).max(100),
-  passportPhotoUrl: z.string(),
+  passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
   dependentProofUrl: z.string().optional().nullable(),
+  isDependent: z.boolean().default(false),
 });
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const organizationId = session.user.organizationId;
-  console.log('organization error', organizationId);
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   
   const json = await req.json();
   const parsed = createMemberSchema.safeParse(json);
-  console.log('parse data', parsed);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
 
   const data = parsed.data;
-  console.log('Parsed data', data);
 
   const member = await prisma.member.create({
     data: {
@@ -51,7 +49,8 @@ export async function POST(req: Request) {
       passportPhotoUrl: data.passportPhotoUrl,
       dependentProofUrl: data.dependentProofUrl,
       category: data.category,
-      coveragePercent: data.coveragePercent
+      coveragePercent: data.coveragePercent,
+      isDependent: data.isDependent,
     }
   });
 
@@ -71,23 +70,25 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const organizationId = (session as any).organizationId as string | null;
+  const organizationId = session.user.organizationId;
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q') || undefined;
   const where: any = { organizationId };
   if (q) where.OR = [
-    { name: { contains: q, mode: 'insensitive' } },
-    { memberCode: { contains: q, mode: 'insensitive' } }
+    { name: { contains: q, } },
+    { memberCode: { contains: q,} }
   ];
   const members = await prisma.member.findMany({ 
     where,
     include: { company: true },
     orderBy: { createdAt: 'desc' }
   });
+  if (!members) return NextResponse.json({ error: 'No members found' }, { status: 404 });
   return NextResponse.json(members.map(m => ({
     ...m,
-    companyName: m.company?.name ?? null
+    companyName: m.company?.name ?? null,
+    companyId: m.company?.id ?? null
   })));
 }
 
