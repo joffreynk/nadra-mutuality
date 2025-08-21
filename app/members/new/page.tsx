@@ -1,36 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { z } from 'zod';
-const memberSchema = z.object({
-  memberCode: z.string().min(5, 'All members must be uniquely identified'),
-  name: z.string().min(2),
-  dob: z.string(),
-  gender: z.string().min(1),
-  email: z.string().email().optional(),
-  contact: z.string().optional(),
-  address: z.string().optional(),
-  idNumber: z.string().optional(),
-  country: z.string().optional(),
-  companyId: z.string().optional().nullable(),
-  category: z.string().min(1),
-  coveragePercent: z.coerce.number().min(20).max(100),
-  passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
-  dependentProofUrl: z.string().optional().nullable(),
-  isDependent: z.boolean().default(false),
-});
-
-const dependentSchema = memberSchema.extend({
-  memberCode: z.string().min(5),
-  parentMemberId: z.string().min(1, 'Parent member is required'),
-  relationship: z.string().min(1, 'Relationship is required'),
-});
 
 type Category = { id: string; name: string; coveragePercent: number, category: string};
 type SimpleMember = { id: string; name: string; memberCode: string, isDependent: boolean, coveragePercent: number, category: string, companyId: string };
 type Company = { id: string; name: string; };
 
-
 export default function NewMemberPage() {
+  const router = useRouter();
   const [form, setForm] = useState<any>({
     memberCode: '',
     name: '',
@@ -42,12 +20,12 @@ export default function NewMemberPage() {
     idNumber: '',
     country: '',
     companyId: '',
-    category: '',
+    category: 'A',
     coveragePercent: 100,
     isDependent: false,
+     familyRelationship: 'Child',
   });
   const [isDependent, setIsDependent] = useState(false);
-  const [relationship, setRelationship] = useState('Child');
   const [parentMemberId, setParentMemberId] = useState('');
   const [currentMember, setCurrentMember] = useState<SimpleMember | null>(null);
   const [parentMemberSearchQuery, setParentMemberSearchQuery] = useState('');
@@ -62,7 +40,7 @@ export default function NewMemberPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
+  const [loading, setLoading] = useState(false); // Add loading state
 
   const fetchData = async () => {
       const cres = await fetch('/api/admin/categories');
@@ -104,6 +82,7 @@ useEffect(() => {
     setForm((prev:any) => ({
       ...prev,
       memberCode: newcode,
+      isDependent: true,
       category: parent?.category ?? prev.category,
       coveragePercent: parent?.coveragePercent ?? prev.coveragePercent,
       companyId: parent?.companyId ?? prev.companyId,
@@ -111,38 +90,93 @@ useEffect(() => {
   } else {
     // non-dependent — recompute top-level code from parents count
         const newcode = `Nadra${String(parents.length + 1).padStart(4, '0')}`;
-        setForm((prev:any) => ({ ...prev, memberCode: newcode }));
+        setForm((prev:any) => ({ ...prev, memberCode: newcode, isDependent: false }));
         setCurrentMember(null);
       }
     }, [parentMemberId, isDependent, currentMember, parents, dependents]);
+
+    console.log(form);
+    
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setLoading(true); // Set loading to true on submission
 
     try {
-      let defproof = '';
-      // Handle passport photo first to ensure data is available for validation
-      if (!passportFile) throw new Error('Passport photo is required');
-      const fd = new FormData();
-      fd.append('file', passportFile);
-      const up = await fetch('/api/uploads', { method: 'POST', body: fd });
-      if (!up.ok) throw new Error('Upload failed');
-      const upj = await up.json();
+      let dependentProofUrl = '';
+      let passportPhotoUrl = '';
 
-      if (isDependent){
-          if (!dependentProof) throw new Error('Dependent proof is required');
+      // Handle passport photo first to ensure data is available for validation
+      if (passportFile) {
+        const fd = new FormData();
+        fd.append('file', passportFile);
+        const up = await fetch('/api/uploads', { method: 'POST', body: fd });
+        if (!up.ok) throw new Error('Passport photo upload failed');
+        const upj = await up.json();
+        passportPhotoUrl = upj.url;
+      } else {
+        throw new Error('Passport photo is required');
+      }
+
+      if (isDependent) {
+        if (dependentProof) {
           const fd = new FormData();
           fd.append('file', dependentProof);
           const dp = await fetch('/api/uploads', { method: 'POST', body: fd });
-          if (!dp.ok) throw new Error('Upload failed');
-         const dpj = await dp.json();
-         defproof = dpj.url;
+          if (!dp.ok) throw new Error('Dependent proof upload failed');
+          const dpj = await dp.json();
+          dependentProofUrl = dpj.url;
+        } else {
+          throw new Error('Dependent proof is required for dependent members');
+        }
+        if (!parentMemberId) throw new Error('Parent member is required for dependent members');
+        if (!form.familyRelationship) throw new Error('Family relationship is required for dependent members');
       }
 
+      const payload = {
+        memberCode: form.memberCode,
+        name: form.name,
+        dob: form.dob,
+        gender: form.gender,
+        email: form.email,
+        contact: form.contact,
+        address: form.address,
+        idNumber: form.idNumber,
+        country: form.country,
+        companyId: form.companyId || null,
+        category: form.category,
+        coveragePercent: form.coveragePercent,
+        passportPhotoUrl: passportPhotoUrl,
+        dependentProofUrl: dependentProofUrl || null,
+        isDependent: isDependent,
+        familyRelationship: isDependent ? form.familyRelationship : null, // Conditionally include familyRelationship
+        parentMemberId: isDependent ? parentMemberId : null, // Conditionally include parentMemberId
+      };
 
-      const parsed = memberSchema.safeParse({ ...form, passportPhotoUrl: upj.url, dependentProofUrl: defproof });
+      // Basic client-side validation using Zod (optional, but good practice)
+      const validationSchema = z.object({
+        memberCode: z.string().min(5, 'Member code is required'),
+        name: z.string().min(2, 'Name is required'),
+        dob: z.string().min(1, 'Date of Birth is required'),
+        gender: z.string().min(1, 'Gender is required'),
+        email: z.string().email('Invalid email').optional().or(z.literal('')),
+        contact: z.string().optional(),
+        address: z.string().optional(),
+        idNumber: z.string().optional(),
+        country: z.string().optional(),
+        companyId: z.string().optional().nullable(),
+        category: z.string().min(1, 'Category is required'),
+        coveragePercent: z.coerce.number().min(20).max(100, 'Coverage percent must be between 20 and 100'),
+        passportPhotoUrl: z.string().min(5, 'Passport photo is required'),
+        dependentProofUrl: z.string().optional().nullable(),
+        isDependent: z.boolean(),
+        familyRelationship: z.string().optional().nullable(),
+        parentMemberId: z.string().optional().nullable(),
+      });
+
+      const parsed = validationSchema.safeParse(payload);
       if (!parsed.success) {
         const fieldErrors = parsed.error.flatten().fieldErrors;
         const errorMessages = Object.entries(fieldErrors)
@@ -155,31 +189,53 @@ useEffect(() => {
       const res = await fetch('/api/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed.data)
+        body: JSON.stringify(parsed.data),
       });
-      if (!res.ok) throw new Error('Failed');
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to create member');
+      }
       setSuccess('Member created');
-      setForm({ memberCode: '', name: '', dob: '', contact: '', address: '', idNumber: '', category: 'Basic', coveragePercent: 100 });
+      // Reset form after successful submission
+      setForm({
+        memberCode: '',
+        name: '',
+        dob: '',
+        gender: 'Male',
+        email: '',
+        contact: '',
+        address: '',
+        idNumber: '',
+        country: '',
+        companyId: '',
+        category: 'A',
+        coveragePercent: 100,
+        isDependent: false,
+        familyRelationship: '',
+      });
+      setIsDependent(false);
       setParentMemberId('');
       setPassportFile(null);
       setDependentProof(null);
-      setSelectedCompanyId(null); // Clear selected company
-      setCompanySearchQuery(''); // Clear company search
+      setSelectedCompanyId(null);
+      setCompanySearchQuery('');
       await fetchData(); // Refresh data
-    } catch (err) {
-      setError('Failed to create member');
-    }
+    } catch (err: any) {
+      setError(err.message || 'Failed to create member');
+      console.log('SBMIT ERROR', err);
 
-    
+    } finally {
+      setLoading(false); // Set loading to false after submission attempt
+    }
   }
   
-  console.log(form);
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-semibold mb-4">Create Member or Dependent</h1>
       <div className="mb-4 flex items-center gap-4">
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isDependent} onChange={(e) => setIsDependent(e.target.checked)} />
+          <input type="checkbox" checked={isDependent} onChange={(e) =>  setIsDependent(e.target.checked)} />
           Create as Dependent
         </label>
       </div>
@@ -203,8 +259,8 @@ useEffect(() => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium">Relationship</label>
-              <select className="mt-1 w-full border rounded p-2" value={relationship} onChange={(e) => setRelationship(e.target.value)}>
+              <label className="block text-sm font-medium">Relationship <span className="text-red-500">*</span></label>
+              <select className="mt-1 w-full border rounded p-2" value={form.familyRelationship} onChange={(e) => setForm({ ...form, familyRelationship: e.target.value })} required>
                 <option>Child</option>
                 <option>Spouse</option>
                 <option>Parent</option>
@@ -316,7 +372,7 @@ useEffect(() => {
           {isDependent && (
             <div>
               <label className="block text-sm font-medium">Dependent Proof (PDF)</label>
-              <input type="file" accept="application/pdf" className="mt-1 w-full border rounded p-2" onChange={(e) => setDependentProof(e.target.files?.[0] ?? null)} />
+              <input type="file" accept="application/pdf" className="mt-1 w-full border rounded p-2" onChange={(e) => setDependentProof(e.target.files?.[0] ?? null)} required={isDependent && !dependentProof} />
               <p className="text-xs text-gray-500 mt-1">Spouse: marriage certificate; Child: birth/adoption certificate.</p>
             </div>
           )}
@@ -327,7 +383,10 @@ useEffect(() => {
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
         {success && <p className="text-green-600 text-sm">{success}</p>}
-        <button type="submit" className="bg-brand text-white px-4 py-2 rounded">Save</button>
+        <div className="flex gap-2 justify-end mt-4">
+          <button type="button" className="px-4 py-2 border rounded" onClick={() => router.back()}>Cancel</button>
+          <button type="submit" className="px-4 py-2 bg-brand text-white rounded" disabled={loading}>Save</button>
+        </div>
       </form>
       <div className="mt-8">
         <a className="text-brand underline" href="/members/bulk">Bulk import members</a>

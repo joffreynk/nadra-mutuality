@@ -101,6 +101,7 @@ model Member {
   passportPhotoUrl String?
   dependentProofUrl String?
   isDependent      Boolean           @default(false)
+  familyRelationship     String? // Added for dependent members
   gender           String?
   country          String?
   companyId        String?
@@ -240,16 +241,14 @@ model Category {
 model HospitalService {
   id             String          @id @default(cuid())
   organizationId String
-  organization   Organization    @relation(fields: [organizationId], references: [id])
-  code           String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   name           String
-  category       String?
   price          Decimal?        @db.Decimal(10, 2)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   treatmentItems TreatmentItem[]
 
-  @@unique([organizationId, code])
+  @@unique([organizationId, name])
 }
 
 model PharmacyService {

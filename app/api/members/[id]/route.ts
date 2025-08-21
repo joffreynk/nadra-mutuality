@@ -17,6 +17,9 @@ const updateSchema = z.object({
   coveragePercent: z.number().min(0).max(100).optional(),
   passportPhotoId: z.string().optional(),
   passportPhotoUrl: z.string().url().optional(),
+  dependentProofUrl: z.string().optional().nullable(), // Add this line
+  isDependent: z.boolean().optional(), // Add this line
+  relationship: z.string().optional(), // Add this line
   status: z.string().optional()
 });
 
@@ -28,6 +31,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const json = await req.json();
   const parsed = updateSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+  if (parsed.success) {
+    const data = parsed.data;
+    if (data.isDependent && !data.relationship) {
+      // Check if isDependent is explicitly set to true and relationship is missing
+      return NextResponse.json({ error: 'Relationship is required for dependent members' }, { status: 400 });
+    }
+  }
+
   const before = await prisma.member.findFirst({ where: { id: params.id, organizationId } });
   if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const updated = await prisma.member.update({ where: { id: params.id }, data: { ...parsed.data, dob: parsed.data.dob ? new Date(parsed.data.dob) : undefined } });

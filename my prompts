@@ -73,3 +73,18 @@ async function generateDependentMemberCode(mainMemberId: number) {
 
 then remove cloudinary upload files on under public/uploads on local machine then update database to record link only and remove file id as it is locally stored
 update the rest of code and make it work
+
+
+
+for hospital_services, update database and remove code and category in hospital_service table, change ui to adapt all changes, on treatment interface use types a services as a search if service exist it will activate select option and user choose the service, otherwise he will continue typing and enter the service price, the service entered will be saved in hospital_service table and on user treatment item the are no service code and category. remove pick option and reebuild the ui and its api.
+
+on member UI if it is dependent member the relationship is required to be saved in database,
+add functionality to update an member
+
+add a functionality on users to change their paswords themselves after putting  the correct current password,
+the health_owner has permission to change all users passwords
+
+
+
+
+add protected routes, only signup and login page available for unlogin users

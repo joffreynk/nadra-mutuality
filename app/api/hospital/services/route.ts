@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-const serviceSchema = z.object({ code: z.string().min(1), name: z.string().min(2), category: z.string().optional(), price: z.coerce.number().optional() });
+const serviceSchema = z.object({ name: z.string().min(2), price: z.coerce.number().optional() });
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -25,8 +25,7 @@ export async function POST(req: Request) {
   // Enforce unique name in org
   const existing = await prisma.hospitalService.findFirst({ where: { organizationId: session.user.organizationId, name: { equals: parsed.data.name, mode: 'insensitive' } } });
   if (existing) return NextResponse.json(existing);
-  const code = parsed.data.code || parsed.data.name.replace(/[^A-Za-z0-9]+/g, '-').toUpperCase().slice(0, 16);
-  const row = await prisma.hospitalService.create({ data: { organizationId: session.user.organizationId, ...parsed.data, code, price: (parsed.data.price ?? null) as any } });
+  const row = await prisma.hospitalService.create({ data: { organizationId: session.user.organizationId, ...parsed.data, price: (parsed.data.price ?? null) as any } });
   return NextResponse.json(row);
 }
 

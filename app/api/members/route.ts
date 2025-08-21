@@ -19,6 +19,7 @@ const createMemberSchema = z.object({
   passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
   dependentProofUrl: z.string().optional().nullable(),
   isDependent: z.boolean().default(false),
+  familyRelationship: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -28,10 +29,16 @@ export async function POST(req: Request) {
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   
   const json = await req.json();
+  
   const parsed = createMemberSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
-
+  
   const data = parsed.data;
+  
+  if (data.isDependent && !data.familyRelationship) {
+    return NextResponse.json({ error: 'Relationship is required for dependent members' }, { status: 400 });
+  }
+  console.log(organizationId);
 
   const member = await prisma.member.create({
     data: {
@@ -51,6 +58,7 @@ export async function POST(req: Request) {
       category: data.category,
       coveragePercent: data.coveragePercent,
       isDependent: data.isDependent,
+      familyRelationship: data.familyRelationship || null,
     }
   });
 
@@ -85,7 +93,7 @@ export async function GET(req: Request) {
     orderBy: { createdAt: 'desc' }
   });
   if (!members) return NextResponse.json({ error: 'No members found' }, { status: 404 });
-  return NextResponse.json(members.map(m => ({
+  return NextResponse.json(members.map((m: any) => ({
     ...m,
     companyName: m.company?.name ?? null,
     companyId: m.company?.id ?? null
