@@ -22,8 +22,6 @@ model Organization {
   documents        Document[]
   systemSetting    SystemSetting?
   categories       Category[]
-  hospitalServices HospitalService[]
-  pharmacyServices PharmacyService[]
   treatments       Treatment[]
   pharmacyRequests PharmacyRequest[]
 }
@@ -239,34 +237,6 @@ model Category {
   @@index([organizationId])
 }
 
-model HospitalService {
-  id             String          @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  name           String
-  price          Decimal?        @db.Decimal(10, 2)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  treatmentItems TreatmentItem[]
-
-  @@unique([name])
-  @@index([organizationId])
-}
-
-model PharmacyService {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  code           String
-  name           String
-  category       String?
-  price          Decimal?     @db.Decimal(10, 2)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@unique([code])
-  @@index([organizationId])
-}
 
 model Treatment {
   id                   String          @id @default(cuid())
@@ -289,12 +259,11 @@ model TreatmentItem {
   id                String           @id @default(cuid())
   treatmentId       String
   treatment         Treatment        @relation(fields: [treatmentId], references: [id])
-  hospitalServiceId String?
-  hospitalService   HospitalService? @relation(fields: [hospitalServiceId], references: [id])
   medicineId        String?
   medicine          Medicine?        @relation(fields: [medicineId], references: [id])
+  treatmentName     String
   quantity          Int              @default(1)
-  unitPrice         Decimal?         @db.Decimal(10, 2)
+  unitPrice         Decimal         @db.Decimal(10, 2)
 }
 
 model PharmacyRequest {
@@ -321,5 +290,5 @@ model PharmacyRequestItem {
   medicineId String
   medicine   Medicine        @relation(fields: [medicineId], references: [id])
   quantity   Int             @default(1)
-  unitPrice  Decimal?        @db.Decimal(10, 2)
+  unitPrice  Decimal        @db.Decimal(10, 2)
 }
