@@ -76,7 +76,7 @@ export async function POST(req: Request) {
   page.drawText('Amount', { x: 320, y, size: 12, font });
   y -= 18;
   for (const it of created.items) {
-    const svc = serviceMap.get(it.hospitalServiceId);
+    const svc = serviceMap.get(it?.hospitalServiceId);
     const unit = Number(it.unitPrice ?? 0);
     const amount = unit * it.quantity;
     page.drawText(String(svc?.name ?? it.hospitalServiceId), { x: 20, y, size: 10, font });
@@ -104,5 +104,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ...created, receiptUrl: updated.receiptUrl });
 }
-
-

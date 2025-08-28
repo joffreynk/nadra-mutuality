@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function ClaimsClient() {
   const [claims, setClaims] = useState<any[]>([]);
-  useEffect(() => { (async () => { const r = await fetch('/api/pharmacy/claims', { method: 'PUT' }); if (r.ok) setClaims(await r.json()); })(); }, []);
+  useEffect(() => { (async () => { const r = await fetch('/api/pharmacy/claims'); if (r.ok) setClaims(await r.json()); })(); }, []);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

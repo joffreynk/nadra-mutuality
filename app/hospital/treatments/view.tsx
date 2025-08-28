@@ -1,7 +1,6 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
 // Precise types for API responses
 type Member = { id: string; name: string };
 type Service = { id: string; name: string; price?: number; };
@@ -47,6 +46,9 @@ export default function TreatmentsClient() {
   const [createServiceError, setCreateServiceError] = useState<string | null>(null);
 
   const router = useRouter(); // Initialize useRouter
+
+  const debounceRef = useRef<number | null>(null);
+  const lastQueryRef = useRef('');
 
   // --- typed fetch helpers ---
   async function fetchMembers(): Promise<MembersResponse> {
@@ -124,28 +126,32 @@ export default function TreatmentsClient() {
   // --- debounced search ---
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
     const q = serviceQuery.trim();
     if (!q) {
-      // if query cleared, optionally reload base services
-      // setServices([]); // or keep existing
+      // Optionally reload base services or clear suggestions
+      // setServices([]);
+      setNewServiceName('');
+      setNewServicePrice(undefined);
       return;
     }
-
-    setSearchLoading(true);
-    setSearchError(null);
-
+    lastQueryRef.current = q;
     debounceRef.current = window.setTimeout(async () => {
       try {
         const svc = await fetchServices(q);
-        setServices(svc);
+        // Only update if the query hasn't changed during debounce
+        if (lastQueryRef.current === q) {
+          setServices(svc);
+        }
       } catch (err: any) {
-        setSearchError(err?.message ?? 'Search failed');
+        if (lastQueryRef.current === q) {
+          setSearchError(err?.message ?? 'Search failed');
+        }
       } finally {
-        setSearchLoading(false);
+        if (lastQueryRef.current === q) {
+          setSearchLoading(false);
+        }
       }
     }, 300);
-
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };

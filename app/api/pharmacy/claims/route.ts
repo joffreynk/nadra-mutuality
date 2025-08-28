@@ -11,11 +11,17 @@ export async function GET(req: Request) {
   const memberId = searchParams.get('memberId') || undefined;
   const from = searchParams.get('from');
   const to = searchParams.get('to');
-  const where: any = { organizationId: session.user.organizationId };
-  if (memberId) where.memberId = memberId;
-  if (from || to) where.createdAt = { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined };
-  const rows = await prisma.pharmacyRequest.findMany({ where, include: { items: true }, orderBy: { createdAt: 'desc' } });
-  return NextResponse.json(rows);
+  // If any filter is present, return requests; otherwise, return claims
+  if (memberId || from || to) {
+    const where: any = { organizationId: session.user.organizationId };
+    if (memberId) where.memberId = memberId;
+    if (from || to) where.createdAt = { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined };
+    const rows = await prisma.pharmacyRequest.findMany({ where, include: { items: true }, orderBy: { createdAt: 'desc' } });
+    return NextResponse.json(rows);
+  } else {
+    const claims = await prisma.claim.findMany({ where: { organizationId: session.user.organizationId }, orderBy: { createdAt: 'desc' } });
+    return NextResponse.json(claims);
+  }
 }
 
 // Claim endpoints for pharmacy: create/list claims which are now date-range reports (no per-member field)
@@ -23,14 +29,6 @@ const createClaimSchema = z.object({
   periodStart: z.string(),
   periodEnd: z.string()
 }).refine((data) => new Date(data.periodStart) <= new Date(data.periodEnd), { message: 'Invalid period range' });
-
-export async function PUT(req: Request) {
-  // List claims
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const claims = await prisma.claim.findMany({ where: { organizationId: session.user.organizationId }, orderBy: { createdAt: 'desc' } });
-  return NextResponse.json(claims);
-}
 
 export async function POST(req: Request) {
   const session = await auth();

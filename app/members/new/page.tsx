@@ -32,7 +32,7 @@ export default function NewMemberPage() {
   const [passportFile, setPassportFile] = useState<File | null>(null);
   const [dependentProof, setDependentProof] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [members, setMembers] = useState<SimpleMember[]>([]);
+  // const [members, setMembers] = useState<SimpleMember[]>([]);
   const [parents, setParents] = useState<SimpleMember[]>([]);
   const [dependents, setDependents] = useState<SimpleMember[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -50,7 +50,7 @@ export default function NewMemberPage() {
       const mres = await fetch(url);
       if (mres.ok) {
         const newmembers = await mres.json();
-        setMembers(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })));
+        // setMembers(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })));
         setParents(newmembers.map((m:any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })).filter((m:any) => !m.isDependent));
         setDependents(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })).filter((m:any) => m.isDependent));
         const newcode = `Nadra${String(parents.length + 1).padStart(4, "0")}`;

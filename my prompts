@@ -47,44 +47,14 @@ NEXTAUTH_SECRET="2031a4df7d4821969ab79889727ee2cddcec53890d27c8fc0df553e51e2d995
 
 
 
-the following code to generate member ID:
-async function generateMainMemberCode() {
-  const members = await prisma.member.findMany({
-    where: { isDependent: false },
-    orderBy: { id: "asc" }
-  });
-
-  const nextNumber = members.length + 1;
-  return `Nadra${String(nextNumber).padStart(4, "0")}`;
-}
-
-// Generate a dependent member code, when isdepende is true
-async function generateDependentMemberCode(mainMemberId: number) {
-  const mainMember = await prisma.member.findUnique({
-    where: { id: mainMemberId },
-    include: { dependents: true }
-  });
-
-  if (!mainMember) throw new Error("Main member not found");
-
-  const dependentCount = mainMember.dependents.length + 1;
-  return `${mainMember.memberCode}/${dependentCount}`;
-}
-
-then remove cloudinary upload files on under public/uploads on local machine then update database to record link only and remove file id as it is locally stored
-update the rest of code and make it work
 
 
 
-for hospital_services, update database and remove code and category in hospital_service table, change ui to adapt all changes, on treatment interface use types a services as a search if service exist it will activate select option and user choose the service, otherwise he will continue typing and enter the service price, the service entered will be saved in hospital_service table and on user treatment item the are no service code and category. remove pick option and reebuild the ui and its api.
+Using Nextjs and shadcn-ui, for hospital insurance platform, make a treatment ui page, when app loads, the user select member and services exist in services tables, he can search the member using member ID or name to filter and populate select dropdown popup if matches,
+the select the services as typing if service exist it popups up but not blocking user to continue typing, then types quatitty and price, the user can add as many serives as possible, 
+then when press save treatment all each treatmentItem is saved in treatmentItem then also save treatments the as total  
+ * - Services endpoint: GET/POST /api/hospital/services?search=...
+ * - treatmentItem endpoint: /api/hospital/treatmentItems
+ * - Treatments endpoint: POST /api/hospital/treatments
 
-on member UI if it is dependent member the relationship is required to be saved in database,
-add functionality to update an member
-
-add a functionality on users to change their paswords themselves after putting  the correct current password,
-the health_owner has permission to change all users passwords
-
-
-
-
-add protected routes, only signup and login page available for unlogin users
+ here is none working version on services addition:

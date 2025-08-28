@@ -9,10 +9,16 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const from = searchParams.get('from');
   const to = searchParams.get('to');
-  const where: any = { organizationId: session.user.organizationId, providerType: 'hospital' };
-  if (from || to) where.createdAt = { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined };
-  const rows = await prisma.treatment.findMany({ where, include: { items: true }, orderBy: { createdAt: 'desc' } });
-  return NextResponse.json(rows);
+  // If any filter is present, return treatments; otherwise, return claims
+  if (from || to) {
+    const where: any = { organizationId: session.user.organizationId, providerType: 'hospital' };
+    if (from || to) where.createdAt = { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined };
+    const rows = await prisma.treatment.findMany({ where, include: { items: true }, orderBy: { createdAt: 'desc' } });
+    return NextResponse.json(rows);
+  } else {
+    const claims = await prisma.claim.findMany({ where: { organizationId: session.user.organizationId }, orderBy: { createdAt: 'desc' } });
+    return NextResponse.json(claims);
+  }
 }
 
 const createClaimSchema = z.object({ periodStart: z.string(), periodEnd: z.string() }).refine((d) => new Date(d.periodStart) <= new Date(d.periodEnd), { message: 'Invalid range' });

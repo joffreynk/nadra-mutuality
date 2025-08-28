@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get('search') || undefined;
   const where: any = { organizationId: session.user.organizationId };
-  if (search) where.name = { contains: search, mode: 'insensitive' };
+  if (search) where.name = { contains: search, };
   const rows = await prisma.hospitalService.findMany({ where, orderBy: { name: 'asc' }, take: 20 });
   return NextResponse.json(rows);
 }
@@ -19,13 +19,16 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const organizationId = session.user.organizationId;
+  if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   const json = await req.json();
   const parsed = serviceSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   // Enforce unique name in org
-  const existing = await prisma.hospitalService.findFirst({ where: { organizationId: session.user.organizationId, name: { equals: parsed.data.name, mode: 'insensitive' } } });
+  
+  const existing = await prisma.hospitalService.findFirst({ where: { organizationId, name: { contains: parsed.data.name } } });
   if (existing) return NextResponse.json(existing);
-  const row = await prisma.hospitalService.create({ data: { organizationId: session.user.organizationId, ...parsed.data, price: (parsed.data.price ?? null) as any } });
+  const row = await prisma.hospitalService.create({ data: { organizationId, ...parsed.data} });
   return NextResponse.json(row);
 }
 

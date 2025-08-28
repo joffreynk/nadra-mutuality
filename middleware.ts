@@ -15,8 +15,10 @@ const PUBLIC_PATHS = [
 ];
 
 export async function middleware(req: NextRequest) {
+
   const { pathname } = req.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+
+  const isPublic = PUBLIC_PATHS.some((p:any) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });

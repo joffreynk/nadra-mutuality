@@ -1,11 +1,13 @@
+'use client';
+
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { RoleType } from '@prisma/client';
+// import { RoleType } from '@prisma/client';
 import { useState } from 'react';
 
 export default async function EditUserPage(props: any) {
-  const { params } = props as { params: { id: string } };
+  const { params } = props;
   const session = await auth();
   if (!session || session.user?.role !== 'HEALTH_OWNER') redirect('/');
   const user = await prisma.user.findUnique({ where: { id: params.id } });
@@ -14,7 +16,7 @@ export default async function EditUserPage(props: any) {
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-semibold mb-4">Edit User</h1>
-      <form action={`/api/admin/users/${user.id}`} method="post" className="space-y-4">
+      <form action={`/api/admin/users/${user?.id}`} method="post" className="space-y-4">
         <div>
           <label className="block text-sm font-medium">Name</label>
           <input name="name" className="w-full border rounded p-2" defaultValue={user.name ?? ''} />

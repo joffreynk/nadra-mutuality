@@ -235,7 +235,8 @@ model Category {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  @@unique([organizationId, name])
+  @@unique([name])
+  @@index([organizationId])
 }
 
 model HospitalService {
@@ -248,7 +249,8 @@ model HospitalService {
   updatedAt      DateTime        @updatedAt
   treatmentItems TreatmentItem[]
 
-  @@unique([organizationId, name])
+  @@unique([name])
+  @@index([organizationId])
 }
 
 model PharmacyService {
@@ -262,7 +264,8 @@ model PharmacyService {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  @@unique([organizationId, code])
+  @@unique([code])
+  @@index([organizationId])
 }
 
 model Treatment {
@@ -308,6 +311,7 @@ model PharmacyRequest {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   items                PharmacyRequestItem[]
+  @@index([organizationId])
 }
 
 model PharmacyRequestItem {

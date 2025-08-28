@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { log } from 'console';
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -25,23 +26,30 @@ const updateSchema = z.object({
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
+  log('SESSION', session);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const organizationId = session.user.organizationId;
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   const json = await req.json();
+  console.log('JSON DATA', json);
+
+
   const parsed = updateSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   if (parsed.success) {
     const data = parsed.data;
+
     if (data.isDependent && !data.relationship) {
       // Check if isDependent is explicitly set to true and relationship is missing
       return NextResponse.json({ error: 'Relationship is required for dependent members' }, { status: 400 });
     }
   }
 
+  console.log('PARAMS ', params.id);
+
   const before = await prisma.member.findFirst({ where: { id: params.id, organizationId } });
   if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const updated = await prisma.member.update({ where: { id: params.id }, data: { ...parsed.data, dob: parsed.data.dob ? new Date(parsed.data.dob) : undefined } });
+  const updated = await prisma.member.update({ where: { id: params.id }, data: { ...parsed.data } });
   await prisma.auditLog.create({ data: { organizationId, userId: session.user.id, action: 'member_update', entityType: 'Member', entityId: updated.id, before, after: updated } });
   return NextResponse.json(updated);
 }
