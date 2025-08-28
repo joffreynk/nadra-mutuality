@@ -81,7 +81,7 @@ CREATE TABLE `Member` (
     `passportPhotoUrl` VARCHAR(191) NULL,
     `dependentProofUrl` VARCHAR(191) NULL,
     `isDependent` BOOLEAN NOT NULL DEFAULT false,
-    `relationship` VARCHAR(191) NULL,
+    `familyRelationship` VARCHAR(191) NULL,
     `gender` VARCHAR(191) NULL,
     `country` VARCHAR(191) NULL,
     `companyId` VARCHAR(191) NULL,
@@ -219,35 +219,8 @@ CREATE TABLE `Category` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `Category_organizationId_name_key`(`organizationId`, `name`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `HospitalService` (
-    `id` VARCHAR(191) NOT NULL,
-    `organizationId` VARCHAR(191) NOT NULL,
-    `name` VARCHAR(191) NOT NULL,
-    `price` DECIMAL(10, 2) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    UNIQUE INDEX `HospitalService_organizationId_name_key`(`organizationId`, `name`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `PharmacyService` (
-    `id` VARCHAR(191) NOT NULL,
-    `organizationId` VARCHAR(191) NOT NULL,
-    `code` VARCHAR(191) NOT NULL,
-    `name` VARCHAR(191) NOT NULL,
-    `category` VARCHAR(191) NULL,
-    `price` DECIMAL(10, 2) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    UNIQUE INDEX `PharmacyService_organizationId_code_key`(`organizationId`, `code`),
+    INDEX `Category_organizationId_idx`(`organizationId`),
+    UNIQUE INDEX `Category_name_key`(`name`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -272,10 +245,10 @@ CREATE TABLE `Treatment` (
 CREATE TABLE `TreatmentItem` (
     `id` VARCHAR(191) NOT NULL,
     `treatmentId` VARCHAR(191) NOT NULL,
-    `hospitalServiceId` VARCHAR(191) NULL,
     `medicineId` VARCHAR(191) NULL,
+    `treatmentName` VARCHAR(191) NOT NULL,
     `quantity` INTEGER NOT NULL DEFAULT 1,
-    `unitPrice` DECIMAL(10, 2) NULL,
+    `unitPrice` DECIMAL(10, 2) NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -293,6 +266,7 @@ CREATE TABLE `PharmacyRequest` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    INDEX `PharmacyRequest_organizationId_idx`(`organizationId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -302,7 +276,7 @@ CREATE TABLE `PharmacyRequestItem` (
     `requestId` VARCHAR(191) NOT NULL,
     `medicineId` VARCHAR(191) NOT NULL,
     `quantity` INTEGER NOT NULL DEFAULT 1,
-    `unitPrice` DECIMAL(10, 2) NULL,
+    `unitPrice` DECIMAL(10, 2) NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -359,12 +333,6 @@ ALTER TABLE `SystemSetting` ADD CONSTRAINT `SystemSetting_organizationId_fkey` F
 ALTER TABLE `Category` ADD CONSTRAINT `Category_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `HospitalService` ADD CONSTRAINT `HospitalService_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `PharmacyService` ADD CONSTRAINT `PharmacyService_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE `Treatment` ADD CONSTRAINT `Treatment_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -372,9 +340,6 @@ ALTER TABLE `Treatment` ADD CONSTRAINT `Treatment_memberId_fkey` FOREIGN KEY (`m
 
 -- AddForeignKey
 ALTER TABLE `TreatmentItem` ADD CONSTRAINT `TreatmentItem_treatmentId_fkey` FOREIGN KEY (`treatmentId`) REFERENCES `Treatment`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `TreatmentItem` ADD CONSTRAINT `TreatmentItem_hospitalServiceId_fkey` FOREIGN KEY (`hospitalServiceId`) REFERENCES `HospitalService`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `TreatmentItem` ADD CONSTRAINT `TreatmentItem_medicineId_fkey` FOREIGN KEY (`medicineId`) REFERENCES `Medicine`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

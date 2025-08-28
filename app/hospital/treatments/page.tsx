@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { CardContent } from '@/components/ui/card';
+import { set } from 'zod';
 
 // ===== Types =====
 interface Member {
@@ -20,8 +21,7 @@ interface HospitalService {
 }
 
 interface TreatmentItemInput {
-  hospitalServiceId?: string;
-  serviceName: string;
+  treatmentName: string;
   quantity: number;
   unitPrice: number;
   localId: string;
@@ -56,109 +56,7 @@ async function fetchJson(url: string, init?: RequestInit) {
   return readJsonOrThrow(res, url);
 }
 
-// Small helper to generate local ids
 const makeLocalId = () => `local-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-
-// Inline service input with its own debounced suggestions (non-blocking)
-function InlineServiceInput({
-  value,
-  onChange,
-  onSelectService,
-  onCreateService,
-  placeholder = 'Type service name...'
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSelectService: (s: HospitalService) => void;
-  onCreateService: (name: string) => Promise<HospitalService>;
-  placeholder?: string;
-}) {
-  const [query, setQuery] = useState(value);
-  const [suggestions, setSuggestions] = useState<HospitalService[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const debounceRef = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => setQuery(value), [value]);
-
-  useEffect(() => {
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    if (!query.trim()) { setSuggestions([]); setError(null); return; }
-    debounceRef.current = window.setTimeout(async () => {
-      setLoading(true); setError(null);
-      try {
-        const data = await fetchJson(`/api/hospital/services?search=${encodeURIComponent(query.trim())}`);
-        setSuggestions(Array.isArray(data) ? data : []);
-      } catch (e: any) { setError(e.message || String(e)); }
-      finally { setLoading(false); }
-    }, 300);
-    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
-  }, [query]);
-
-  // Click outside to close suggestions
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) setSuggestions([]);
-    }
-    window.addEventListener('click', onDoc);
-    return () => window.removeEventListener('click', onDoc);
-  }, []);
-
-  async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const trimmed = query.trim();
-      if (!trimmed) return;
-      // if exact match exists in suggestions, select it
-      const exact = suggestions.find(s => s.name.toLowerCase() === trimmed.toLowerCase());
-      if (exact) {
-        onSelectService(exact);
-        setSuggestions([]);
-        return;
-      }
-      // otherwise create service and return selection
-      try {
-        const created = await onCreateService(trimmed);
-        onSelectService(created);
-        setSuggestions([]);
-      } catch (err) {
-        // bubble up error by setting local error
-        setError((err as Error)?.message || String(err));
-      }
-    }
-    if (e.key === 'ArrowDown' && suggestions.length > 0) {
-      // focus first suggestion by mimicking click (UX improvement could be added)
-      e.preventDefault();
-      const first = suggestions[0];
-      onSelectService(first);
-      setSuggestions([]);
-    }
-  }
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <input
-        className="w-full border rounded px-2 py-1"
-        placeholder={placeholder}
-        value={query}
-        onChange={(e) => { setQuery(e.target.value); onChange(e.target.value); }}
-        onKeyDown={handleKeyDown}
-      />
-      {(loading || suggestions.length > 0 || error) && (
-        <div className="absolute left-0 right-0 mt-1 bg-white border rounded shadow max-h-48 overflow-auto z-20">
-          {loading && <div className="p-2 text-sm">Searching…</div>}
-          {error && <div className="p-2 text-sm text-red-600">{error}</div>}
-          {suggestions.map(s => (
-            <div key={s.id} className="px-3 py-2 cursor-pointer hover:bg-gray-50" onClick={() => { onSelectService(s); setSuggestions([]); }}>
-              <div className="font-medium">{s.name}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function TreatmentsClient({ currentProviderType }: { currentProviderType: string }) {
   // Members
@@ -169,13 +67,6 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const memberDebounceRef = useRef<number | null>(null);
 
-  // Top-level service add (optional)
-  const [serviceQuery, setServiceQuery] = useState('');
-  const [servicesCache, setServicesCache] = useState<HospitalService[]>([]); // keep a small cache
-  const [servicesLoading, setServicesLoading] = useState(false);
-  const [servicesError, setServicesError] = useState<string | null>(null);
-  const serviceDebounceRef = useRef<number | null>(null);
-
   // Line items
   const [lineItems, setLineItems] = useState<TreatmentItemInput[]>([]);
 
@@ -185,34 +76,29 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
   // member search
-  useEffect(() => {
-    if (memberDebounceRef.current) window.clearTimeout(memberDebounceRef.current);
-    if (!memberQuery.trim()) { setMembers([]); setMembersError(null); return; }
-    memberDebounceRef.current = window.setTimeout(async () => {
-      setMembersLoading(true); setMembersError(null);
-      try {
-        const data = await fetchJson(`/api/members?q=${encodeURIComponent(memberQuery.trim())}`);
-        setMembers(Array.isArray(data) ? data : []);
-      } catch (e: any) { setMembersError(e.message || String(e)); }
-      finally { setMembersLoading(false); }
-    }, 300);
-    return () => { if (memberDebounceRef.current) window.clearTimeout(memberDebounceRef.current); };
-  }, [memberQuery]);
+  const fetchData = async () => {
+      const url = memberQuery ? `/api/members?q=${encodeURIComponent(memberQuery)}` : '/api/members';
+      const mres = await fetch(url);
+      if (mres.ok) {
+      const newmembers = await mres.json();
+      console.log('members', newmembers);
+      console.log('query', memberQuery);
+        setMembers(newmembers.map((m:any) => ({   id: m.id, name: m.name, memberCode: m.memberCode, coveragePercent: m.coveragePercent })));
+      }
+    };
 
-  // top-level service search to populate cache (non-blocking)
+    // useEffect(() => {
+    //   fetchData();
+    // }, [memberQuery])
+    
+
   useEffect(() => {
-    if (serviceDebounceRef.current) window.clearTimeout(serviceDebounceRef.current);
-    if (!serviceQuery.trim()) { setServicesCache([]); setServicesError(null); return; }
-    serviceDebounceRef.current = window.setTimeout(async () => {
-      setServicesLoading(true); setServicesError(null);
-      try {
-        const data = await fetchJson(`/api/hospital/services?search=${encodeURIComponent(serviceQuery.trim())}`);
-        setServicesCache(Array.isArray(data) ? data : []);
-      } catch (e: any) { setServicesError(e.message || String(e)); }
-      finally { setServicesLoading(false); }
-    }, 300);
-    return () => { if (serviceDebounceRef.current) window.clearTimeout(serviceDebounceRef.current); };
-  }, [serviceQuery]);
+    const id = setTimeout(() => {
+       fetchData();
+      // setMembers(members.filter(m => m.name.toLowerCase().includes(memberQuery.toLowerCase())));
+    }, 350);
+    return () => clearTimeout(id);
+  }, [memberQuery]);
 
   const totals = useMemo(() => {
     const cents = lineItems.reduce((s, li) => {
@@ -228,39 +114,9 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
     return { totalAmount, insurerShare, memberShare };
   }, [lineItems, selectedMember?.coveragePercent]);
 
-  // CRUD helpers for services
-  async function createServiceOnServer(name: string) {
-    const created: HospitalService = await fetchJson('/api/hospital/services', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })
-    });
-    // update cache
-    setServicesCache(prev => [created, ...prev.filter(p => p.id !== created.id)]);
-    return created;
-  }
-
   // Add a completely new empty line
   function addBlankLine() {
-    setLineItems(prev => [...prev, { hospitalServiceId: undefined, serviceName: '', quantity: 1, unitPrice: 0, localId: makeLocalId() }]);
-  }
-
-  // Add a line item by name (from top input or suggestion)
-  async function addLineItemByName(name: string) {
-    const trimmed = name.trim(); if (!trimmed) return;
-    // try find in cache
-    const existing = servicesCache.find(s => s.name.toLowerCase() === trimmed.toLowerCase());
-    if (existing) {
-      setLineItems(prev => [...prev, { hospitalServiceId: existing.id, serviceName: existing.name, quantity: 1, unitPrice: 0, localId: makeLocalId() }]);
-      setServiceQuery('');
-      return;
-    }
-    // create
-    setServicesLoading(true);
-    try {
-      const created = await createServiceOnServer(trimmed);
-      setLineItems(prev => [...prev, { hospitalServiceId: created.id, serviceName: created.name, quantity: 1, unitPrice: 0, localId: makeLocalId() }]);
-      setServiceQuery('');
-    } catch (e: any) { setServicesError(e.message || String(e)); }
-    finally { setServicesLoading(false); }
+    setLineItems(prev => [...prev, { treatmentName: '', quantity: 1, unitPrice: 0, localId: makeLocalId() }]);
   }
 
   function updateLineItem(idx: number, patch: Partial<TreatmentItemInput>) {
@@ -271,10 +127,9 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
   // Ensure any remaining local-only services get created and updated with ids
   async function ensureLineItemsPersisted() {
     for (const li of lineItems) {
-      if (!li.hospitalServiceId) {
-        if (!li.serviceName || !li.serviceName.trim()) throw new Error('Service name required for a line item.');
-        const created = await createServiceOnServer(li.serviceName.trim());
-        setLineItems(prev => prev.map(p => p.localId === li.localId ? { ...p, hospitalServiceId: created.id } : p));
+      if (!li.treatmentName) {
+        if (!li.treatmentName || !li.treatmentName.trim()) throw new Error('Treatment name required for a line item.');
+        setLineItems(prev => prev.map(p => p.localId === li.localId ? { ...p, treatmentName: li.treatmentName } : p));
       }
     }
   }
@@ -286,19 +141,18 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
     if (lineItems.length === 0) { setSaveError('Please add at least one service.'); return; }
 
     for (const li of lineItems) {
-      if (!li.serviceName || !li.serviceName.trim()) { setSaveError('All line items need a service name.'); return; }
-      if (!Number.isFinite(li.unitPrice) || li.unitPrice < 0) { setSaveError(`Unit price must be >= 0 for "${li.serviceName}".`); return; }
-      if (!Number.isFinite(li.quantity) || li.quantity < 1) { setSaveError(`Quantity must be >= 1 for "${li.serviceName}".`); return; }
+      if (!li.treatmentName || !li.treatmentName.trim()) { setSaveError('All line items need a service name.'); return; }
+      if (!Number.isFinite(li.unitPrice) || li.unitPrice < 0) { setSaveError(`Unit price must be >= 0 for "${li.treatmentName}".`); return; }
+      if (!Number.isFinite(li.quantity) || li.quantity < 1) { setSaveError(`Quantity must be >= 1 for "${li.treatmentName}".`); return; }
     }
 
     setSaving(true);
     try {
       await ensureLineItemsPersisted();
       const finalItems = lineItems.map(li => ({ ...li }));
-      const treatmentItems = finalItems.map(li => ({ hospitalServiceId: li.hospitalServiceId, unitPrice: li.unitPrice, quantity: li.quantity }));
+      const treatmentItems = finalItems.map(li => ({ treatmentName: li.treatmentName, unitPrice: li.unitPrice, quantity: li.quantity }));
       const payload = {
         memberId: selectedMember.id,
-        providerType: currentProviderType,
         totalAmount: totals.totalAmount,
         insurerShare: totals.insurerShare,
         memberShare: totals.memberShare,
@@ -314,7 +168,7 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
     finally { setSaving(false); }
   }
 
-  // Shortcuts: add an initial blank line when component mounts
+  // add an initial blank line
   useEffect(() => { if (lineItems.length === 0) addBlankLine(); }, []);
 
   return (
@@ -339,8 +193,7 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
               ))}
             </div>
           )}
-          <div className="text-xs text-gray-600">Provider type: <span className="font-medium">{currentProviderType}</span></div>
-          {selectedMember && <div className="text-sm text-green-700">Selected: {selectedMember.name} (Coverage {selectedMember.coveragePercent ?? 0}%)</div>}
+          {selectedMember && <div className="text-sm text-green-700">Member: {selectedMember.name} (Coverage {selectedMember.coveragePercent ?? 0}%)</div>}
         </CardContent>
       </Card>
 
@@ -349,20 +202,9 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
         <CardContent className="space-y-2">
           <h2 className="text-lg font-semibold">2) Add Services</h2>
 
-          {/* Top quick add (optional) */}
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Type service name. Press Enter to add (creates if not found)."
-              value={serviceQuery}
-              onChange={e => setServiceQuery(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && serviceQuery.trim()) { e.preventDefault(); addLineItemByName(serviceQuery.trim()); } }}
-            />
-            <Button variant="secondary" onClick={() => { setServiceQuery(''); setServicesCache([]); setServicesError(null); }}>Clear</Button>
-          </div>
-          {servicesLoading && <div className="text-sm">Searching/creating services…</div>}
-          {servicesError && <div className="text-sm text-red-600">{servicesError}</div>}
+          <div className="text-sm text-gray-600">Type each service name directly on its line.</div>
 
-          {/* Line items table with inline suggestion-enabled service input */}
+          {/* Line items table with simple service name input */}
           <div className="overflow-x-auto mt-3">
             <table className="w-full table-auto border-collapse">
               <thead>
@@ -381,24 +223,10 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
                   </tr>
                 )}
                 {lineItems.map((li, idx) => (
-                  <tr key={`${li.hospitalServiceId ?? li.localId}-${idx}`} className="border-t">
+                  <tr key={`${li.treatmentName ?? li.localId}-${idx}`} className="border-t">
                     <td className="p-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-full">
-                          <InlineServiceInput
-                            value={li.serviceName}
-                            onChange={(v) => updateLineItem(idx, { serviceName: v })}
-                            onSelectService={(s) => updateLineItem(idx, { serviceName: s.name, hospitalServiceId: s.id })}
-                            onCreateService={async (name) => {
-                              // create and return the created service
-                              const created = await createServiceOnServer(name);
-                              // ensure the line reflects the saved id
-                              updateLineItem(idx, { hospitalServiceId: created.id, serviceName: created.name });
-                              return created;
-                            }}
-                          />
-                        </div>
-                        {li.hospitalServiceId ? <span className="text-xs text-green-600">Saved</span> : <span className="text-xs text-yellow-600">Local</span>}
+                        <input type='text' className="w-full min-w-40 border rounded px-2 py-1" id={`treatmentName-${idx}`} value={li.treatmentName} onChange={(e) => updateLineItem(idx, { treatmentName: e.target.value })} placeholder="Service name" />
                       </div>
                     </td>
                     <td className="p-2 w-24">
@@ -411,7 +239,7 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
                     <td className="p-2">
                       <div className="flex gap-2">
                         <Button variant="destructive" onClick={() => removeLineItem(idx)}>Remove</Button>
-                        {idx === lineItems.length - 1 && <Button variant="secondary" onClick={addBlankLine}>+ Add line</Button>}
+                        {idx === lineItems.length - 1 && <Button variant="secondary" onClick={addBlankLine}>+ Add</Button>}
                       </div>
                     </td>
                   </tr>

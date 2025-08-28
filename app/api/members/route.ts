@@ -92,6 +92,8 @@ export async function GET(req: Request) {
     include: { company: true },
     orderBy: { createdAt: 'desc' }
   });
+  console.log('MEMBERS RUN',members);
+  
   if (!members) return NextResponse.json({ error: 'No members found' }, { status: 404 });
   return NextResponse.json(members.map((m: any) => ({
     ...m,
