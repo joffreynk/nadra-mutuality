@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { CardContent } from '@/components/ui/card';
-import { set } from 'zod';
 
 // ===== Types =====
 interface Member {
@@ -75,27 +74,19 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
   const [saveError, setSaveError] = useState<string | null>(null);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
-  // member search
+  // member search (simple fetch with debounce)
   const fetchData = async () => {
-      const url = memberQuery ? `/api/members?q=${encodeURIComponent(memberQuery)}` : '/api/members';
-      const mres = await fetch(url);
-      if (mres.ok) {
+    const url = memberQuery ? `/api/members?q=${encodeURIComponent(memberQuery)}` : '/api/members';
+    const mres = await fetch(url);
+    if (mres.ok) {
       const newmembers = await mres.json();
-      console.log('members', newmembers);
-      console.log('query', memberQuery);
-        setMembers(newmembers.map((m:any) => ({   id: m.id, name: m.name, memberCode: m.memberCode, coveragePercent: m.coveragePercent })));
-      }
-    };
-
-    // useEffect(() => {
-    //   fetchData();
-    // }, [memberQuery])
-    
+      setMembers(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, coveragePercent: m.coveragePercent })));
+    }
+  };
 
   useEffect(() => {
-    const id = setTimeout(() => {
-       fetchData();
-      // setMembers(members.filter(m => m.name.toLowerCase().includes(memberQuery.toLowerCase())));
+    const id = window.setTimeout(() => {
+      fetchData();
     }, 350);
     return () => clearTimeout(id);
   }, [memberQuery]);
@@ -114,23 +105,24 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
     return { totalAmount, insurerShare, memberShare };
   }, [lineItems, selectedMember?.coveragePercent]);
 
-  // Add a completely new empty line
+  // Add a completely new empty line (makeLocalId only called here)
   function addBlankLine() {
     setLineItems(prev => [...prev, { treatmentName: '', quantity: 1, unitPrice: 0, localId: makeLocalId() }]);
   }
 
-  function updateLineItem(idx: number, patch: Partial<TreatmentItemInput>) {
-    setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, ...patch } : li));
+  // Stable update/remove helpers using localId
+  function updateLineItemById(localId: string, patch: Partial<TreatmentItemInput>) {
+    setLineItems(prev => prev.map(li => li.localId === localId ? { ...li, ...patch } : li));
   }
-  function removeLineItem(idx: number) { setLineItems(prev => prev.filter((_, i) => i !== idx)); }
+  function removeLineItemById(localId: string) {
+    setLineItems(prev => prev.filter(li => li.localId !== localId));
+  }
 
   // Ensure any remaining local-only services get created and updated with ids
   async function ensureLineItemsPersisted() {
     for (const li of lineItems) {
-      if (!li.treatmentName) {
-        if (!li.treatmentName || !li.treatmentName.trim()) throw new Error('Treatment name required for a line item.');
-        setLineItems(prev => prev.map(p => p.localId === li.localId ? { ...p, treatmentName: li.treatmentName } : p));
-      }
+      if (!li.treatmentName || !li.treatmentName.trim()) throw new Error('Treatment name required for a line item.');
+      // If you wanted to create services on server, do it here and update local state with returned id
     }
   }
 
@@ -222,24 +214,44 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
                     <td className="p-4 text-sm text-gray-500" colSpan={5}>No services added yet.</td>
                   </tr>
                 )}
-                {lineItems.map((li, idx) => (
-                  <tr key={`${li.treatmentName ?? li.localId}-${idx}`} className="border-t">
+                {lineItems.map((li) => (
+                  <tr key={li.localId} className="border-t">
                     <td className="p-2">
                       <div className="flex items-center gap-2">
-                        <input type='text' className="w-full min-w-40 border rounded px-2 py-1" id={`treatmentName-${idx}`} value={li.treatmentName} onChange={(e) => updateLineItem(idx, { treatmentName: e.target.value })} placeholder="Service name" />
+                        <input
+                          type='text'
+                          className="w-full min-w-40 border rounded px-2 py-1"
+                          id={`treatmentName-${li.localId}`}
+                          value={li.treatmentName}
+                          onChange={(e) => updateLineItemById(li.localId, { treatmentName: e.target.value })}
+                          placeholder="Service name"
+                        />
                       </div>
                     </td>
                     <td className="p-2 w-24">
-                      <input type="number" min={1} value={li.quantity} onChange={(e) => updateLineItem(idx, { quantity: Math.max(1, Number(e.target.value) || 1) })} className="w-20 border rounded px-2 py-1" />
+                      <input
+                        type="number"
+                        min={1}
+                        value={li.quantity}
+                        onChange={(e) => updateLineItemById(li.localId, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                        className="w-20 border rounded px-2 py-1"
+                      />
                     </td>
                     <td className="p-2 w-36">
-                      <input type="number" min={0} step="0.01" value={li.unitPrice} onChange={(e) => updateLineItem(idx, { unitPrice: Math.max(0, Number(e.target.value) || 0) })} className="w-28 border rounded px-2 py-1" />
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={li.unitPrice}
+                        onChange={(e) => updateLineItemById(li.localId, { unitPrice: Math.max(0, Number(e.target.value) || 0) })}
+                        className="w-28 border rounded px-2 py-1"
+                      />
                     </td>
                     <td className="p-2">{(li.unitPrice * li.quantity).toFixed(2)}</td>
                     <td className="p-2">
                       <div className="flex gap-2">
-                        <Button variant="destructive" onClick={() => removeLineItem(idx)}>Remove</Button>
-                        {idx === lineItems.length - 1 && <Button variant="secondary" onClick={addBlankLine}>+ Add</Button>}
+                        <Button variant="destructive" onClick={() => removeLineItemById(li.localId)}>Remove</Button>
+                        {lineItems[lineItems.length - 1].localId === li.localId && <Button variant="secondary" onClick={addBlankLine}>+ Add</Button>}
                       </div>
                     </td>
                   </tr>
