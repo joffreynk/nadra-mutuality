@@ -9,8 +9,8 @@ import { CardContent } from '@/components/ui/card';
 // ===== Types =====
 interface Member {
   id: string;
+  memberCode: string;
   name: string;
-  memberCode?: string;
   coveragePercent?: number; // from Prisma schema
 }
 
@@ -57,14 +57,12 @@ async function fetchJson(url: string, init?: RequestInit) {
 
 const makeLocalId = () => `local-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
 
-export default function TreatmentsClient({ currentProviderType }: { currentProviderType: string }) {
+export default function TreatmentsClient() {
   // Members
   const [memberQuery, setMemberQuery] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const memberDebounceRef = useRef<number | null>(null);
 
   // Line items
   const [lineItems, setLineItems] = useState<TreatmentItemInput[]>([]);
@@ -142,13 +140,10 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
     try {
       await ensureLineItemsPersisted();
       const finalItems = lineItems.map(li => ({ ...li }));
-      const treatmentItems = finalItems.map(li => ({ treatmentName: li.treatmentName, unitPrice: li.unitPrice, quantity: li.quantity }));
+      const treatmentItems = finalItems.map(li => ({ treatmentName: li.treatmentName, unitPrice: li.unitPrice, quantity: li.quantity, insurerShare: totals.insurerShare,
+        memberShare: totals.memberShare }));
       const payload = {
         memberId: selectedMember.id,
-        totalAmount: totals.totalAmount,
-        insurerShare: totals.insurerShare,
-        memberShare: totals.memberShare,
-        coveragePercent: selectedMember.coveragePercent ?? 0,
         treatmentItems,
       };
       const res = await fetchJson('/api/hospital/treatments', {
@@ -173,7 +168,6 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
             <Input placeholder="Search member by name/code..." value={memberQuery} onChange={e => setMemberQuery(e.target.value)} />
             <Button variant="secondary" onClick={() => { setMemberQuery(''); setMembers([]); setMembersError(null); }}>Clear</Button>
           </div>
-          {membersLoading && <div className="text-sm">Searching members…</div>}
           {membersError && <div className="text-sm text-red-600">{membersError}</div>}
           {members.length > 0 && (
             <div className="border rounded-md max-h-48 overflow-auto">
@@ -251,11 +245,15 @@ export default function TreatmentsClient({ currentProviderType }: { currentProvi
                     <td className="p-2">
                       <div className="flex gap-2">
                         <Button variant="destructive" onClick={() => removeLineItemById(li.localId)}>Remove</Button>
-                        {lineItems[lineItems.length - 1].localId === li.localId && <Button variant="secondary" onClick={addBlankLine}>+ Add</Button>}
                       </div>
                     </td>
                   </tr>
                 ))}
+                <tr>
+                  <td colSpan={5}>
+                    <Button variant="secondary" onClick={addBlankLine}>+ Add</Button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

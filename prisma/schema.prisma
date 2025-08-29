@@ -17,13 +17,14 @@ model Organization {
   companies        Company[]
   invoices         Invoice[]
   claims           Claim[]
-  medicines        Medicine[]
   auditLogs        AuditLog[]
   documents        Document[]
   systemSetting    SystemSetting?
   categories       Category[]
   treatments       Treatment[]
+  pharmacyRequestReceipts PharmacyRequestReceipt[]
   pharmacyRequests PharmacyRequest[]
+
 }
 
 enum RoleType {
@@ -49,6 +50,11 @@ model User {
   accounts       Account[]
   sessions       Session[]
   auditLogs      AuditLog[]
+  pharmacyAprovers  PharmacyRequestItem[]
+  receiptCreators PharmacyRequestReceipt[]
+  hospitalPharmacyCreators PharmacyRequest[]
+  hospitaltreaments Treatment[]
+  
 }
 
 model Account {
@@ -111,7 +117,7 @@ model Member {
   invoices         Invoice[]
   claims           Claim[]
   treatments       Treatment[]
-  pharmacyRequests PharmacyRequest[]
+  Pharmacysrequests PharmacyRequest[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   deletedAt        DateTime?
@@ -160,19 +166,6 @@ model Claim {
   updatedAt      DateTime     @updatedAt
   Member         Member?      @relation(fields: [memberId], references: [id])
   memberId       String?
-}
-
-model Medicine {
-  id                   String                @id @default(cuid())
-  organizationId       String
-  organization         Organization          @relation(fields: [organizationId], references: [id])
-  code                 String
-  name                 String
-  price                Decimal               @db.Decimal(10, 2)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  treatmentItems       TreatmentItem[]
-  pharmacyRequestItems PharmacyRequestItem[]
 }
 
 model AuditLog {
@@ -244,51 +237,68 @@ model Treatment {
   organization         Organization    @relation(fields: [organizationId], references: [id])
   memberId             String
   member               Member          @relation(fields: [memberId], references: [id])
-  providerType         String // hospital or pharmacy
-  status               String          @default("Open")
-  totalAmount          Decimal?        @db.Decimal(10, 2)
-  insurerShare         Decimal?        @db.Decimal(10, 2)
-  memberShare          Decimal?        @db.Decimal(10, 2)
   receiptUrl           String? // Changed from receiptCloudinaryId to receiptUrl
+  treatments                TreatmentItem[]
+  usercreator       String
+  user         User     @relation(fields: [usercreator], references: [id], onDelete: Cascade)
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
-  items                TreatmentItem[]
 }
 
 model TreatmentItem {
   id                String           @id @default(cuid())
   treatmentId       String
   treatment         Treatment        @relation(fields: [treatmentId], references: [id])
-  medicineId        String?
-  medicine          Medicine?        @relation(fields: [medicineId], references: [id])
   treatmentName     String
   quantity          Int              @default(1)
   unitPrice         Decimal         @db.Decimal(10, 2)
+  insurerShare         Decimal?        @db.Decimal(10, 2)
+  memberShare          Decimal?        @db.Decimal(10, 2)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 }
 
+
+
 model PharmacyRequest {
-  id                   String                @id @default(cuid())
+  id                   String          @id @default(cuid())
   organizationId       String
-  organization         Organization          @relation(fields: [organizationId], references: [id])
+  organization         Organization    @relation(fields: [organizationId], references: [id])
   memberId             String
-  member               Member                @relation(fields: [memberId], references: [id])
-  status               String                @default("Pending")
-  totalAmount          Decimal?              @db.Decimal(10, 2)
-  insurerShare         Decimal?              @db.Decimal(10, 2)
-  memberShare          Decimal?              @db.Decimal(10, 2)
-  receiptUrl           String? // Changed from receiptCloudinaryId to receiptUrl
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  items                PharmacyRequestItem[]
-  @@index([organizationId])
+  member               Member          @relation(fields: [memberId], references: [id])
+  usercreator       String
+  user         User     @relation(fields: [usercreator], references: [id], onDelete: Cascade)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  pharmacyRequests PharmacyRequestItem[]
+  pharmacyRequestReceipts PharmacyRequestReceipt[]
 }
 
 model PharmacyRequestItem {
-  id         String          @id @default(cuid())
-  requestId  String
-  request    PharmacyRequest @relation(fields: [requestId], references: [id])
-  medicineId String
-  medicine   Medicine        @relation(fields: [medicineId], references: [id])
-  quantity   Int             @default(1)
-  unitPrice  Decimal        @db.Decimal(10, 2)
+  id                String           @id @default(cuid())
+  mdecineName       String
+  quantity          Int              @default(1)
+  unitPrice         Decimal         @db.Decimal(10, 2)
+  status         String       @default("Pending")
+  pharmacyRequestId      String
+  pharmacyRequest         PharmacyRequest        @relation(fields: [id], references: [id])
+  userAproverId       String
+  user         User     @relation(fields: [userAproverId], references: [id], onDelete: Cascade)
+  insurerShare         Decimal?        @db.Decimal(10, 2)
+  memberShare          Decimal?        @db.Decimal(10, 2)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+}
+
+model PharmacyRequestReceipt{
+  id                String           @id @default(cuid())
+  organizationId       String
+  organization         Organization    @relation(fields: [organizationId], references: [id])
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pharmacyRequestId      String
+  pharmacyRequest         PharmacyRequest        @relation(fields: [pharmacyRequestId], references: [id])
+  url String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 }
