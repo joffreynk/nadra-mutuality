@@ -20,10 +20,19 @@ export async function GET(req: Request) {
     const where: any = { organizationId };
     if (memberId) where.memberId = memberId;
 
-    const list = await prisma.treatment.findMany({ where, include: { treatments: true }, orderBy: { createdAt: 'desc' }, take: 200 });
+    const list = await prisma.treatment.findMany({
+      where, 
+      include: {
+        treatments: true,     // TreatmentItem[]
+        member: {select: { id: true, name: true, memberCode: true }},         // Member
+        user: {select: { id: true, name: true, email: true }},           // creator (User) - make sure User model relation name is `user`
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
     return NextResponse.json(list);
   } catch (err: any) {
-    console.error('GET /api/hospital/treatments', err);
     return NextResponse.json({ error: err?.message ?? 'Server error' }, { status: 500 });
   }
 }
