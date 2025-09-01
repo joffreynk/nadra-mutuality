@@ -281,9 +281,9 @@ model PharmacyRequestItem {
   unitPrice         Decimal         @db.Decimal(10, 2)
   status         String       @default("Pending")
   pharmacyRequestId      String
-  pharmacyRequest         PharmacyRequest        @relation(fields: [id], references: [id])
-  userAproverId       String
-  user         User     @relation(fields: [userAproverId], references: [id], onDelete: Cascade)
+  pharmacyRequest         PharmacyRequest        @relation(fields: [pharmacyRequestId], references: [id])
+  userAproverId       String?
+  user         User?     @relation(fields: [userAproverId], references: [id], onDelete: Cascade)
   insurerShare         Decimal?        @db.Decimal(10, 2)
   memberShare          Decimal?        @db.Decimal(10, 2)
   createdAt            DateTime        @default(now())

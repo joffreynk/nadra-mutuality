@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import Link from 'next/link';
 
 // Lightweight JSON fetch helper
 async function fetchJson(url: string, init?: RequestInit) {
@@ -233,6 +234,7 @@ export default function AdminTreatments() {
             <div className="mt-4 flex gap-2">
               {selected.receiptUrl && <a className="text-blue-700 underline" href={selected.receiptUrl} target="_blank" rel="noreferrer">Open receipt</a>}
               <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
+              <Link href={`/hospital/treatments/${selected.id}`} className="text-blue-700 underline">Edit</Link>
             </div>
           </DialogContent>
         </Dialog>
