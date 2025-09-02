@@ -58,3 +58,6 @@ then when press save treatment all each treatmentItem is saved in treatmentItem 
  * - Treatments endpoint: POST /api/hospital/treatments
 
  here is none working version on services addition:
+
+
+

@@ -13,7 +13,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   try {
     const pr = await prisma.pharmacyRequest.findFirst({
       where: { id: params.id, organizationId },
-      include: { pharmacyRequests: true, pharmacyRequestReceipts: true, member: true, user: { select: { id: true, name: true } } },
+      include: { pharmacyRequests: {
+        include: {
+          user: { select: { id: true, name: true, role:true } } // approver user (nullable)
+        }
+      }, pharmacyRequestReceipts: true, member: true, user: { select: { id: true, name: true } } },
     });
     if (!pr) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json(pr);
