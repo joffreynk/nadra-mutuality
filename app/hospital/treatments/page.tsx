@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import Link from 'next/link';
 
 // Lightweight JSON fetch helper
@@ -45,27 +45,6 @@ function buildUrl(base: string, params: Record<string, any>) {
     url.searchParams.set(k, String(v));
   });
   return url.toString();
-}
-
-// Aggregate services for a member across treatments
-function aggregateServices(treatments: TreatmentDTO[]) {
-  const map = new Map<string, { name: string; qty: number; amount: number }>();
-  for (const t of treatments) {
-    for (const it of t.treatments || []) {
-      const name = it.treatmentName;
-      const qty = Number(it.quantity || 0);
-      const price = Number(it.unitPrice || 0);
-      const amount = qty * price;
-      const existing = map.get(name);
-      if (existing) {
-        existing.qty += qty;
-        existing.amount += amount;
-      } else {
-        map.set(name, { name, qty, amount });
-      }
-    }
-  }
-  return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
 }
 
 export default function AdminTreatments() {
@@ -117,17 +96,6 @@ export default function AdminTreatments() {
     receiptUrl: t.receiptUrl ?? null,
   })), [treatments]);
 
-  async function viewServices(memberId: string) {
-    setLoading(true); setError(null);
-    try {
-      const url = buildUrl('/api/hospital/treatments', { memberId });
-      const data: TreatmentDTO[] = await fetchJson(url);
-      const agg = aggregateServices(data);
-      setServicesForMember(agg);
-    } catch (e: any) { setError(e.message || String(e)); }
-    finally { setLoading(false); }
-  }
-
   return (
     <div className="p-4 space-y-4">
       <Card>
@@ -176,9 +144,6 @@ export default function AdminTreatments() {
                     <td className="p-2 align-top text-sm">
                       <div>{r.member}</div>
                       <div className="text-xs text-gray-500">{r.memberCode}</div>
-                      <div className="mt-1">
-                        <Button variant="secondary" onClick={() => viewServices(r.memberCode || r.member)}>View member services</Button>
-                      </div>
                     </td>
                     <td className="p-2 align-top text-sm">{r?.user?.name ?? '—'}</td>
                     <td className="p-2 align-top text-sm">{r.items}</td>
@@ -216,6 +181,7 @@ export default function AdminTreatments() {
 
       {selected && (
         <Dialog open={true} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+             <DialogTitle>Member: {selected.member?.name ?? '—'}</DialogTitle>
           <DialogContent>
             <h3 className="text-lg font-semibold">Treatment {selected.id}</h3>
             <div className="mt-2">

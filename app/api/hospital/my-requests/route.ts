@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
 
   try {
-    // optional query filters
+    // optional query filters 
     const url = new URL(req.url);
     const startDate = url.searchParams.get('startDate') ?? undefined;
     const endDate = url.searchParams.get('endDate') ?? undefined;

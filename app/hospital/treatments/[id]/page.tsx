@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Trash } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
+import { useParams } from 'next/navigation';
 
 // Zod schemas (mirror server)
 const ItemSchema = z.object({
@@ -36,7 +36,10 @@ function makeLocalId() {
   return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export default function EditTreatment({ params }: { params: { id: string } }) {
+export default function EditTreatment() {
+  const { id } = useParams();
+  if (!id) throw new Error('Missing treatment ID');
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +51,7 @@ export default function EditTreatment({ params }: { params: { id: string } }) {
     (async () => {
       setLoading(true);
       try {
-        const t = await fetchJson(`/api/hospital/treatments/${encodeURIComponent(params.id)}`);
+        const t = await fetchJson(`/api/hospital/treatments/${encodeURIComponent(`${id}`)}`);
         // t.treatments is the items array
         const items = (t.treatments || []).map((it: any) => ({
           id: it.id,
@@ -64,7 +67,7 @@ export default function EditTreatment({ params }: { params: { id: string } }) {
         setLoading(false);
       }
     })();
-  }, [params.id]);
+  }, [id]);
 
   function updateItem(idx: number, patch: Partial<Item>) {
     setTreatmentItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
@@ -100,7 +103,7 @@ export default function EditTreatment({ params }: { params: { id: string } }) {
       };
       BodySchema.parse(payload); // client-side validation (throws on invalid)
       setSaving(true);
-      const res = await fetchJson(`/api/hospital/treatments/${encodeURIComponent(params.id)}`, {
+      const res = await fetchJson(`/api/hospital/treatments/${encodeURIComponent(`${id}`)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

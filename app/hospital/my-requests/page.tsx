@@ -29,10 +29,9 @@ export default function HospitalMyRequestsPage() {
   }
 
   useEffect(() => { fetchSession(); load(); }, []);
-
   return (
     <div className="p-4 max-w-5xl mx-auto space-y-4">
-      <h1 className="text-xl font-semibold">My hospital requests</h1>
+      <h1 className="text-xl font-semibold">Medecines requests</h1>
       {loading && <div>Loading…</div>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -46,7 +45,6 @@ export default function HospitalMyRequestsPage() {
               </div>
 
               <div className="flex items-center gap-2 mt-2 sm:mt-0">
-                <div className="text-sm text-gray-600 mr-4">{(req.pharmacyRequests?.length ?? 0)} item(s)</div>
                 <Button variant="ghost" onClick={() => setOpenRequestId(req.id)}>View</Button>
               </div>
             </CardContent>

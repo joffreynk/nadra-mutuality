@@ -24,7 +24,6 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
       const res = await fetch(`/api/hospital/pharmacyRequests/${requestId}`);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      console.log(data);
       
       setRequest(data);
     } catch (e:any) { console.error(e); setErr(e?.message ?? 'Failed to load'); }

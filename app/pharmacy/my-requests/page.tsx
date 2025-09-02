@@ -32,7 +32,7 @@ export default function HospitalMyRequestsPage() {
 
   return (
     <div className="p-4 max-w-5xl mx-auto space-y-4">
-      <h1 className="text-xl font-semibold">My hospital requests</h1>
+      <h1 className="text-xl font-semibold">Medecines requests</h1>
       {loading && <div>Loading…</div>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
