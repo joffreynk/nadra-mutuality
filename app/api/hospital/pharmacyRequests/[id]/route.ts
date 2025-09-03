@@ -15,14 +15,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       where: { id: params.id, organizationId },
       include: { pharmacyRequests: {
         include: {
-          user: { select: { id: true, name: true, role:true } } // approver user (nullable)
-        }
+          user: { select: { id: true, name: true, role:true } }
+        },
+        where: { status: 'Pending' }
       }, pharmacyRequestReceipts: true, member: true, user: { select: { id: true, name: true } } },
     });
     if (!pr) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json(pr);
   } catch (err: any) {
-    console.error('GET /api/hospital/pharmacyRequests/[id] error', err);
     return NextResponse.json({ error: err?.message ?? 'Server error' }, { status: 500 });
   }
 }
@@ -61,7 +61,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             data: {
               mdecineName: it.mdecineName,
               quantity: it.quantity,
-              unitPrice: it.unitPrice,
+              unitPrice: null,
             },
           });
         } else {
@@ -70,7 +70,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
               pharmacyRequestId: params.id,
               mdecineName: it.mdecineName,
               quantity: it.quantity,
-              unitPrice: it.unitPrice,
+              unitPrice: null,
               status: 'Pending',
             },
           });

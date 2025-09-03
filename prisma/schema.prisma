@@ -278,7 +278,7 @@ model PharmacyRequestItem {
   id                String           @id @default(cuid())
   mdecineName       String
   quantity          Int              @default(1)
-  unitPrice         Decimal         @db.Decimal(10, 2)
+  unitPrice         Decimal?         @db.Decimal(10, 2)
   status         String       @default("Pending")
   pharmacyRequestId      String
   pharmacyRequest         PharmacyRequest        @relation(fields: [pharmacyRequestId], references: [id])

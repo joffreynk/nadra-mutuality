@@ -27,8 +27,12 @@ export async function GET(req: Request) {
     const list = await prisma.pharmacyRequest.findMany({
       where,
       include: {
-        pharmacyRequests: true,
-        pharmacyRequestReceipts: true,
+        pharmacyRequests: {where: {
+          pharmacyRequestId: session.user.id
+        } },
+        pharmacyRequestReceipts: {where: {
+          pharmacyRequestId: session.user.id
+        }},
         member: true,
         user: { select: { id: true, name: true } },
       },
@@ -38,7 +42,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json(list);
   } catch (err: any) {
-    console.error('GET /api/hospital/pharmacyRequests error', err);
     return NextResponse.json({ error: err?.message ?? 'Server error' }, { status: 500 });
   }
 }
@@ -73,7 +76,7 @@ export async function POST(req: Request) {
         pharmacyRequestId: pr.id,
         mdecineName: it.mdecineName,
         quantity: it.quantity,
-        unitPrice: it.unitPrice,
+        unitPrice: null,
         status: 'Pending',
         userAproverId: null, // explicit null now allowed
       }));

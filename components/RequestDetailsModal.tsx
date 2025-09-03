@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import RequestEditModal from './RequestEditModal'; // relative path
+import { Input } from '@/components/ui/input';
 
 export default function RequestDetailsModal({ requestId, onClose, onChanged, currentUserId }: {
   requestId: string;
@@ -15,6 +16,9 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  // Map of itemId -> unitPrice (local input state)
+  const [unitPrices, setUnitPrices] = useState<Record<string, number>>({});
+
   // editor
   const [editing, setEditing] = useState(false);
 
@@ -24,23 +28,46 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
       const res = await fetch(`/api/hospital/pharmacyRequests/${requestId}`);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      
       setRequest(data);
+
+      // initialize unit price map from server values (use numeric 0 if null)
+      const map: Record<string, number> = {};
+      (data.pharmacyRequests || []).forEach((it: any) => {
+        map[it.id] = it.unitPrice != null ? Number(it.unitPrice) : 0;
+      });
+      setUnitPrices(map);
     } catch (e:any) { console.error(e); setErr(e?.message ?? 'Failed to load'); }
     finally { setLoading(false); }
   }
 
   useEffect(() => { load(); }, [requestId]);
 
+  function setUnitPriceFor(itemId: string, value: number) {
+    setUnitPrices(prev => ({ ...prev, [itemId]: value }));
+  }
+
   async function postAction(itemId: string, actionBody: any) {
     setBusyItemId(itemId);
+    setErr(null);
     try {
+      // If approving, ensure we have a positive unit price for this item
+      if (actionBody.action === 'Approved') {
+        const price = unitPrices[itemId];
+        if (!Number.isFinite(price) || price <= 0) {
+          throw new Error('Unit price must be > 0 to approve the item.');
+        }
+        actionBody.unitPrice = price;
+      }
+
       const res = await fetch(`/api/pharmacy/requests/${requestId}/items/${itemId}/status`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(actionBody),
       });
       const txt = await res.text();
       if (!res.ok) throw new Error(txt || res.statusText);
-      await load(); onChanged?.();
+
+      // refresh data after successful change
+      await load();
+      onChanged?.();
     } catch (e:any) { console.error(e); setErr(e?.message ?? 'Action failed'); }
     finally { setBusyItemId(null); }
   }
@@ -58,7 +85,10 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
 
   if (!request) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded p-6 max-w-lg w-full">{loading ? 'Loading…' : (err ?? 'No data')}<div className="mt-3"><Button onClick={onClose}>Close</Button></div></div>
+      <div className="bg-white rounded p-6 max-w-lg w-full">
+        {loading ? 'Loading…' : (err ?? 'No data')}
+        <div className="mt-3"><Button onClick={onClose}>Close</Button></div>
+      </div>
     </div>
   );
 
@@ -78,29 +108,57 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
         <div className="p-4 space-y-3">
           {err && <div className="text-sm text-red-600">{err}</div>}
           <div className="space-y-2">
-            {request.pharmacyRequests.length === 0 && <div className="text-sm text-gray-500">No items.</div>}
+            {(!request.pharmacyRequests || request.pharmacyRequests.length === 0) && <div className="text-sm text-gray-500">No items.</div>}
             {request.pharmacyRequests.map((it:any) => {
               const isApproved = it.status === 'Approved';
               const isApprover = it.userAproverId === currentUserId;
               const canApprove = !isApproved;
               const canRevert = isApproved && isApprover;
 
+              // the local controlled value for this input
+              const localPrice = unitPrices[it.id] ?? 0;
+
               return (
                 <Card key={it.id}>
-                  <CardContent className="flex items-center justify-between gap-4">
-                    <div>
+                  <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex-1">
                       <div className="font-medium">{it.mdecineName}</div>
-                      <div className="text-xs text-gray-500">{it.quantity} × {Number(it.unitPrice).toFixed(2)}</div>
                       <div className="text-xs text-gray-500">
-                        Status: {it.status}
-                        {it.user?.name ? ` • by ${it.user.name}` : ''}
+                        {it.quantity} × {it.unitPrice != null ? Number(it.unitPrice).toFixed(2) : '—'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Status: {it.status}{it.user?.name ? ` • by ${it.user.name}` : ''}
+                      </div>
                     </div>
+
+                    <div className="w-40">
+                      <label htmlFor={`unitPrice-${it.id}`} className="text-xs text-gray-600 block">Unit Price</label>
+                      <Input
+                        id={`unitPrice-${it.id}`}
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={localPrice}
+                        onChange={(e) => setUnitPriceFor(it.id, Number(e.target.value))}
+                        disabled={isApproved} // disable editing for approved items by default
+                      />
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {canApprove && <Button disabled={!!busyItemId} onClick={() => postAction(it.id, { action: 'Approved' })}>Approve</Button>}
-                      {canRevert && <Button variant="ghost" disabled={!!busyItemId} onClick={() => postAction(it.id, { action: 'Reverted' })}>Revert</Button>}
-
+                      {canApprove && (
+                        <Button disabled={!!busyItemId} onClick={() => postAction(it.id, { action: 'Approved' })}>
+                          Approve
+                        </Button>
+                      )}
+                      {canRevert && (
+                        <Button variant="ghost" disabled={!!busyItemId} onClick={() => postAction(it.id, { action: 'Reverted' })}>
+                          Revert
+                        </Button>
+                      )}
+                      {/* creator can remove pending items */}
+                      {isCreator && !isApproved && (
+                        <Button variant="destructive" onClick={() => doDelete(it.id)} disabled={!!busyItemId}>Delete</Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -110,7 +168,7 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
         </div>
 
         <div className='text-center'>
-            <div className=" flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 justify-center">
             {isCreator && <Button onClick={() => setEditing(true)}>Edit list</Button>}
             <Button variant="ghost" onClick={() => { onClose(); }}>Close</Button>
           </div>

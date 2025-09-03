@@ -92,10 +92,7 @@ useEffect(() => {
         setForm((prev:any) => ({ ...prev, memberCode: newcode, isDependent: false }));
         setCurrentMember(null);
       }
-    }, [parentMemberId, isDependent, currentMember, parents, dependents]);
-
-    console.log(form);
-    
+    }, [parentMemberId, isDependent, currentMember, parents, dependents]);    
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -222,8 +219,6 @@ useEffect(() => {
       await fetchData(); // Refresh data
     } catch (err: any) {
       setError(err.message || 'Failed to create member');
-      console.log('SBMIT ERROR', err);
-
     } finally {
       setLoading(false); // Set loading to false after submission attempt
     }

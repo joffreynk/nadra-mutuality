@@ -6,7 +6,7 @@ export default async function Sidebar() {
   const role = session?.user?.role;
 
   return (
-    <aside className="w-64 shrink-0 border-r bg-white/80 backdrop-blur">
+    <aside className="w-40 shrink-0 border-r bg-white/80 backdrop-blur">
       <div className="px-4 py-3 border-b">
         <div className="font-semibold">Navigation</div>
       </div>
@@ -36,9 +36,10 @@ export default async function Sidebar() {
             <SidebarLink href="/pharmacy/coverage" label="Coverage Check" />
             <SidebarLink href="/pharmacy/claims" label="Claims" />
             <SidebarLink href="/pharmacy/claims/new" label="New Claim" />
-            <SidebarLink href="/pharmacy/medicines" label="Medicines" />
             <SidebarLink href="/pharmacy/requests" label="Requests" />
+            <SidebarLink href="/pharmacy/receipts" label="Receipts" />
             <SidebarLink href="/pharmacy/reports" label="Reports" />
+
           </>
         )}
         {role === 'HOSPITAL' && (
@@ -47,6 +48,9 @@ export default async function Sidebar() {
             <SidebarLink href="/hospital/authorization" label="Authorization" />
             <SidebarLink href="/hospital/claims" label="Claims" />
             <SidebarLink href="/hospital/treatments" label="Treatments" />
+            <SidebarLink href="/hospital/medecines" label="Medicines" />
+            <SidebarLink href="/hospital/requests" label="Requests" />
+            <SidebarLink href="/pharmacy/receipts" label="Receipts" />
             <SidebarLink href="/hospital/reports" label="Reports" />
           </>
         )}

@@ -17,17 +17,26 @@ export async function POST(req: Request, { params }: { params: { id: string; ite
     body = await req.json();
     ItemStatusAction.parse(body);
   } catch (e: any) {
-    if (e?.issues) return NextResponse.json({ error: 'Validation error', details: e.issues }, { status: 400 });
+    if (e?.issues) {
+      return NextResponse.json({ error: 'Validation error', details: e.issues }, { status: 400 });
+    }
     return NextResponse.json({ error: e?.message ?? 'Invalid JSON' }, { status: 400 });
   }
 
   try {
-    const item = await prisma.pharmacyRequestItem.findUnique({ where: { id: params.itemId }, include: { pharmacyRequest: true }});
+    const item = await prisma.pharmacyRequestItem.findUnique({
+      where: { id: params.itemId },
+      include: { pharmacyRequest: true },
+    });
     if (!item) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
 
     const pr = item.pharmacyRequest;
-    if (!pr || pr.id !== params.id) return NextResponse.json({ error: 'Item not in this request' }, { status: 400 });
-    if (pr.organizationId !== organizationId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!pr || pr.id !== params.id) {
+      return NextResponse.json({ error: 'Item not in this request' }, { status: 400 });
+    }
+    if (pr.organizationId !== organizationId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // allowed transitions
     const allowed = (current: string, action: string) => {
@@ -39,22 +48,51 @@ export async function POST(req: Request, { params }: { params: { id: string; ite
       return NextResponse.json({ error: 'Invalid status transition' }, { status: 409 });
     }
 
-    const updated = await prisma.pharmacyRequestItem.update({
-      where: { id: item.id },
-      data: { status: body.action, userAproverId: approverId },
-    });
+    let updateData: any = { status: body.action };
 
-    // recompute shares if possible
-    const fullRequest = await prisma.pharmacyRequest.findUnique({ where: { id: pr.id }, include: { member: true } });
-    if (fullRequest?.member && updated.unitPrice !== null && updated.quantity !== null) {
-      const coverage = fullRequest.member.coveragePercent ?? 0;
-      const total = Number(updated.unitPrice) * updated.quantity;
-      const insurerShare = +(total * (coverage / 100)).toFixed(2);
-      const memberShare = +(total - insurerShare).toFixed(2);
-      await prisma.pharmacyRequestItem.update({ where: { id: updated.id }, data: { insurerShare, memberShare } });
+    if (body.action === 'Approved') {
+      if (!body.unitPrice || Number(body.unitPrice) <= 0) {
+        return NextResponse.json({ error: 'unitPrice is required when approving' }, { status: 400 });
+      }
+      updateData.unitPrice = body.unitPrice;
+      updateData.userAproverId = approverId;
+    } else {
+      // For Reverted or other states
+      updateData.unitPrice = null;
+      updateData.userAproverId = null;
+      updateData.insurerShare = null;
+      updateData.memberShare = null;
     }
 
-    return NextResponse.json({ ok: true, item: await prisma.pharmacyRequestItem.findUnique({ where: { id: updated.id } }) });
+    const updated = await prisma.pharmacyRequestItem.update({
+      where: { id: item.id },
+      data: updateData,
+    });
+
+    // Only compute shares if Approved
+    if (body.action === 'Approved') {
+      const fullRequest = await prisma.pharmacyRequest.findUnique({
+        where: { id: pr.id },
+        include: { member: true },
+      });
+
+      if (fullRequest?.member && updated.unitPrice !== null && updated.quantity !== null) {
+        const coverage = fullRequest.member.coveragePercent ?? 0;
+        const total = Number(updated.unitPrice) * updated.quantity;
+        const insurerShare = +(total * (coverage / 100)).toFixed(2);
+        const memberShare = +(total - insurerShare).toFixed(2);
+
+        await prisma.pharmacyRequestItem.update({
+          where: { id: updated.id },
+          data: { insurerShare, memberShare },
+        });
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      item: await prisma.pharmacyRequestItem.findUnique({ where: { id: item.id } }),
+    });
   } catch (err: any) {
     console.error('POST status change error', err);
     return NextResponse.json({ error: err?.message ?? 'Server error' }, { status: 500 });

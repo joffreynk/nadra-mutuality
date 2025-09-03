@@ -10,7 +10,6 @@ const ItemSchema = z.object({
   id: z.string().optional(),
   mdecineName: z.string().min(1, 'Name required'),
   quantity: z.coerce.number().int().min(1, 'Quantity >= 1'),
-  unitPrice: z.coerce.number().nonnegative('Unit price >= 0'),
 });
 const UpdateRequestSchema = z.object({ items: z.array(ItemSchema).min(1, 'At least one item') });
 
@@ -19,7 +18,6 @@ type ItemRow = {
   localId: string;
   mdecineName: string;
   quantity: number;
-  unitPrice: number;
 };
 
 export default function RequestEditModal({
@@ -45,23 +43,19 @@ export default function RequestEditModal({
       localId: makeLocalId(),
       mdecineName: i.mdecineName ?? '',
       quantity: Number(i.quantity ?? 1),
-      unitPrice: Number(i.unitPrice ?? 0),
     })) as ItemRow[];
-    setItems(mapped.length ? mapped : [{ id: undefined, localId: makeLocalId(), mdecineName: '', quantity: 1, unitPrice: 0 }]);
+    setItems(mapped.length ? mapped : [{ id: undefined, localId: makeLocalId(), mdecineName: '', quantity: 1 }]);
   }, [initialItems]);
 
   function update(iLocalId: string, patch: Partial<ItemRow>) {
     setItems(prev => prev.map(r => r.localId === iLocalId ? { ...r, ...patch } : r));
   }
-  function addRow() { setItems(prev => [...prev, { id: undefined, localId: makeLocalId(), mdecineName: '', quantity: 1, unitPrice: 0 }]); }
+  function addRow() { setItems(prev => [...prev, { id: undefined, localId: makeLocalId(), mdecineName: '', quantity: 1 }]); }
   function removeRow(localId: string) { setItems(prev => prev.filter(r => r.localId !== localId)); }
-
-  const total = items.reduce((s, it) => s + Math.round((Number(it.unitPrice)||0)*100)*Math.max(1, Number(it.quantity)||1), 0)/100;
-
   async function handleSave() {
     setError(null);
     // prepare payload
-    const payload = { items: items.map(it => ({ id: it.id, mdecineName: it.mdecineName.trim(), quantity: Number(it.quantity), unitPrice: Number(it.unitPrice) })) };
+    const payload = { items: items.map(it => ({ id: it.id, mdecineName: it.mdecineName.trim(), quantity: Number(it.quantity) })) };
     // client-side zod validation
     const parseRes = UpdateRequestSchema.safeParse(payload);
     if (!parseRes.success) {
@@ -110,14 +104,6 @@ export default function RequestEditModal({
                   <label className="text-xs text-gray-600">Quantity</label>
                   <Input type="number" min={1} value={it.quantity} onChange={e => update(it.localId, { quantity: Math.max(1, Number(e.target.value) || 1) })} />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-gray-600">Unit price</label>
-                  <Input type="number" step="0.01" min={0} value={it.unitPrice} onChange={e => update(it.localId, { unitPrice: Math.max(0, Number(e.target.value) || 0) })} />
-                </div>
-                <div className="md:col-span-1">
-                     <label className="text-xs text-gray-600">Total</label>
-                  <div className="text-sm">{(Number(it.unitPrice)||0 * Number(it.quantity)||0).toFixed(2)}</div>
-                </div>
                 <div className="md:col-span-1 text-right">
                   <button className="p-2 rounded hover:bg-red-50 text-red-600" onClick={() => removeRow(it.localId)} disabled={busy || items.length === 1}>Remove</button>
                 </div>
@@ -129,7 +115,6 @@ export default function RequestEditModal({
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">Total: <span className="font-semibold">{total.toFixed(2)}</span></div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
               <Button onClick={handleSave} disabled={busy}>{busy ? savingLabel : 'Save changes'}</Button>

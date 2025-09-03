@@ -1,8 +1,6 @@
-// components/RequestDetail.tsx
 'use client';
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 
 export default function RequestDetail({ request, onAction }: { request: any; onAction: (itemId:string, currentStatus:string) => void }) {
   if (!request) return null;
@@ -27,11 +25,6 @@ export default function RequestDetail({ request, onAction }: { request: any; onA
                 </div>
                 <div className="flex items-center gap-2 mt-2 sm:mt-0">
                   <div className={`text-sm font-medium ${it.status==='Approved'?'text-green-600': it.status==='Reverted'?'text-orange-600':'text-gray-600'}`}>{it.status}</div>
-                  {it.status === 'Approved' ? (
-                    <Button variant="destructive" onClick={()=>onAction(it.id, it.status)}>Revert</Button>
-                  ) : (
-                    <Button onClick={()=>onAction(it.id, it.status)}>Approve</Button>
-                  )}
                 </div>
               </div>
             ))}

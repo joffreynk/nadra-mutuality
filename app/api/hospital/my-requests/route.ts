@@ -34,22 +34,28 @@ export async function GET(req: Request) {
 
     // Include only items that are Pending or Approved
     const list = await prisma.pharmacyRequest.findMany({
-      where,
-      include: {
-      member: true,
-      user: { select: { id: true, name: true, role:true  } }, // request creator
-      pharmacyRequests: {
-        where: { status: { in: ['Pending', 'Approved'] } },
-        orderBy: { createdAt: 'asc' },
-        include: {
-          user: { select: { id: true, name: true, role:true } } // approver user (nullable)
+      where: {
+        organizationId,
+        pharmacyRequests: {
+          some: { status: 'Pending' }
         }
       },
-      pharmacyRequestReceipts: true,
-    },
+      include: {
+        member: true,
+        user: { select: { id: true, name: true, role: true } },
+        pharmacyRequests: {
+          where: { status: 'Pending' },
+          orderBy: { createdAt: 'asc' },
+          include: {
+            user: { select: { id: true, name: true, role: true } }
+          }
+        },
+        pharmacyRequestReceipts: true,
+      },
       orderBy: { createdAt: 'desc' },
       take: 500,
     });
+
 
     return NextResponse.json(list);
   } catch (err: any) {

@@ -17,7 +17,6 @@ interface Member {
 interface PharmacyItemInput {
   mdecineName: string;
   quantity: number;
-  unitPrice: number;
   localId: string;
 }
 
@@ -66,7 +65,7 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
   const memberDebounceRef = useRef<number | null>(null);
 
   // Line items
-  const [items, setItems] = useState<PharmacyItemInput[]>([{ localId: makeLocalId(), mdecineName:'', quantity:1, unitPrice:0 }]);
+  const [items, setItems] = useState<PharmacyItemInput[]>([{ localId: makeLocalId(), mdecineName:'', quantity:1}]);
 
   // Save state
   const [loading, setLoading] = useState(false);
@@ -95,29 +94,14 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
     setItems(prev => prev.map(it => it.localId === localId ? { ...it, ...patch } : it));
   }
   function addItem() {
-    setItems(prev => [...prev, { localId: makeLocalId(), mdecineName:'', quantity:1, unitPrice:0 }]);
+    setItems(prev => [...prev, { localId: makeLocalId(), mdecineName:'', quantity:1}]);
   }
   function removeItemById(localId: string) {
     setItems(prev => prev.filter(it => it.localId !== localId));
   }
   function resetItems() {
-    setItems([{ localId: makeLocalId(), mdecineName:'', quantity:1, unitPrice:0 }]);
+    setItems([{ localId: makeLocalId(), mdecineName:'', quantity:1}]);
   }
-
-  // Totals (cents to avoid float drift)
-  const totals = useMemo(() => {
-    const cents = items.reduce((s, it) => {
-      const unitCents = Math.round((it.unitPrice || 0) * 100);
-      const qty = Math.max(0, Math.floor(it.quantity || 0));
-      return s + unitCents * qty;
-    }, 0);
-    const totalAmount = cents / 100;
-    const coverage = selectedMember?.coveragePercent ?? 0;
-    const insurerCents = Math.round(cents * (coverage / 100));
-    const insurerShare = insurerCents / 100;
-    const memberShare = (cents - insurerCents) / 100;
-    return { totalAmount, insurerShare, memberShare };
-  }, [items, selectedMember?.coveragePercent]);
 
   // Validation + create request
   async function handleCreate() {
@@ -130,7 +114,7 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
       // build payload in shape zod expects
       const payload = {
         memberId: selectedMember.id,
-        items: items.map(it => ({ mdecineName: String(it.mdecineName || '').trim(), quantity: Number(it.quantity || 0), unitPrice: Number(it.unitPrice || 0) })),
+        items: items.map(it => ({ mdecineName: String(it.mdecineName || '').trim(), quantity: Number(it.quantity || 0) })),
       };
       // validate client-side
       CreatePharmacyRequestBody.parse(payload);
@@ -138,7 +122,6 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
       // basic checks
       for (const it of payload.items) {
         if (!it.mdecineName) { throw new Error('All medicines must have a name.'); }
-        if (!Number.isFinite(it.unitPrice) || it.unitPrice < 0) { throw new Error(`Unit price must be >= 0 for "${it.mdecineName}".`); }
         if (!Number.isFinite(it.quantity) || it.quantity < 1) { throw new Error(`Quantity must be >= 1 for "${it.mdecineName}".`); }
       }
 
@@ -236,8 +219,6 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
                 <tr className="text-left text-sm text-gray-600">
                   <th className="p-2">Medicine</th>
                   <th className="p-2 w-28">Quantity</th>
-                  <th className="p-2 w-36">Unit price</th>
-                  <th className="p-2">Amount</th>
                   <th className="p-2">Actions</th>
                 </tr>
               </thead>
@@ -251,38 +232,22 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
                   <tr key={it.localId} className="border-t">
                     <td className="p-2">
                       <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          className="w-full min-w-40 border rounded px-2 py-1"
+                        <Input
+                          placeholder="Medicine name"
                           value={it.mdecineName}
                           onChange={(e) => updateItemById(it.localId, { mdecineName: e.target.value })}
-                          placeholder="Medicine name"
                         />
                       </div>
                     </td>
 
                     <td className="p-2">
-                      <input
+                      <Input
                         type="number"
                         min={1}
                         value={it.quantity}
                         onChange={(e) => updateItemById(it.localId, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                        className="w-20 border rounded px-2 py-1"
                       />
                     </td>
-
-                    <td className="p-2">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={it.unitPrice}
-                        onChange={(e) => updateItemById(it.localId, { unitPrice: Math.max(0, Number(e.target.value) || 0) })}
-                        className="w-28 border rounded px-2 py-1"
-                      />
-                    </td>
-
-                    <td className="p-2">{(it.unitPrice * it.quantity).toFixed(2)}</td>
 
                     <td className="p-2">
                       <div className="flex gap-2">
@@ -299,43 +264,12 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
                 </tr>
               </tbody>
             </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-2">
-          <h2 className="text-lg font-semibold">3) Summary & Create</h2>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-gray-600">Total amount</div>
-              <div className="text-xl font-semibold">{totals.totalAmount.toFixed(2)}</div>
-            </div>
-
-            <div>
-              <div className="text-sm text-gray-600">Insurer share ({selectedMember?.coveragePercent ?? 0}%)</div>
-              <div className="text-xl font-semibold">{totals.insurerShare.toFixed(2)}</div>
-            </div>
-
-            <div>
-              <div className="text-sm text-gray-600">Member share</div>
-              <div className="text-xl font-semibold">{totals.memberShare.toFixed(2)}</div>
-            </div>
-
-            <div>
-              <div className="text-sm text-gray-600"># items</div>
-              <div className="text-xl font-semibold">{items.length}</div>
-            </div>
-          </div>
-
-          {msg && <div className="text-sm text-gray-700">{msg}</div>}
-
-          <div className="flex gap-2">
+            <div className="flex gap-8 mt-4 mr-16">
             <Button onClick={handleCreate} disabled={loading}>
-              {loading ? 'Creating…' : 'Create pharmacy request'}
+              {loading ? 'Creating…' : 'Create request'}
             </Button>
             <Button variant="secondary" onClick={() => { resetItems(); setMsg(null); }}>Reset</Button>
+          </div>
           </div>
         </CardContent>
       </Card>

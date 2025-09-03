@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const PharmacyItemCreate = z.object({
   mdecineName: z.string().min(1, 'Medicine name required'),
   quantity: z.coerce.number().int().min(1, 'Quantity must be >= 1'),
-  unitPrice: z.coerce.number().nonnegative('Unit price must be >= 0'),
+  unitPrice: z.coerce.number().nullable(),
 });
 
 export const CreatePharmacyRequestBody = z.object({
@@ -24,4 +24,5 @@ export const UpdatePharmacyRequestBody = z.object({
 export const ItemStatusAction = z.object({
   action: z.enum(['Approved', 'Reverted']),
   note: z.string().optional(),
+  unitPrice: z.coerce.number().nonnegative('Unit price must be >= 0').nullable().optional(),
 });
