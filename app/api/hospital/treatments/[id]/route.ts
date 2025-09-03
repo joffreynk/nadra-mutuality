@@ -94,9 +94,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const name = it.treatmentName.trim();
         const qty = Math.max(1, Math.floor(ensureNumber(it.quantity, 1)));
         const price = Math.max(0, ensureNumber(it.unitPrice, 0));
-        const total = Math.round(qty * price * 100) / 100;
-        const insurerShare = Math.round(total * (coverage / 100) * 100) / 100;
-        const memberShare = Math.round((total - insurerShare) * 100) / 100;
 
         if (it.id) {
           await tx.treatmentItem.update({
@@ -105,8 +102,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
               treatmentName: name,
               quantity: qty,
               unitPrice: toTwoDpString(price),
-              insurerShare: toTwoDpString(insurerShare),
-              memberShare: toTwoDpString(memberShare),
             },
           });
         } else {
@@ -116,8 +111,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
               treatmentName: name,
               quantity: qty,
               unitPrice: toTwoDpString(price),
-              insurerShare: toTwoDpString(insurerShare),
-              memberShare: toTwoDpString(memberShare),
             },
           });
         }
@@ -132,6 +125,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const memberShare = Math.round((cents - Math.round(cents * (coverage / 100)))) / 100;
 
     // regenerate receipt unless explicit false
+       const updated = await prisma.treatment.findFirst({
+      where: { id: params.id },
+      include: { treatments: true, member: true, user: { select: { id: true, name: true, email: true } }, organization: true },
+    });
+
     if (parsedBody.regenReceipt !== false) {
       const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
       const creatorName = (session as any).user?.name ?? (session as any).user?.email ?? 'System';
@@ -142,18 +140,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         totals: { totalAmount, insurerShare, memberShare },
         createdAt: new Date(),
         createdBy: creatorName,
-        treatmentId: params.id,
+        treatmentId: updated?.code ?? 'N/A',
       });
       const filename = `treatment-${params.id}-${Date.now()}.pdf`;
       const { url } = await saveBufferToStorage(filename, pdfBytes);
 
       await prisma.treatment.update({ where: { id: params.id }, data: { receiptUrl: url, usercreator: userId ?? undefined } });
     }
-
-    const updated = await prisma.treatment.findFirst({
-      where: { id: params.id },
-      include: { treatments: true, member: true, user: { select: { id: true, name: true, email: true } }, organization: true },
-    });
 
     return NextResponse.json({ ok: true, treatment: updated }, { status: 200 });
   } catch (e: any) {

@@ -1,4 +1,3 @@
-// /app/api/hospital/treatmentItems/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
@@ -36,17 +35,6 @@ export async function PUT(_req: Request, { params }: { params: { id: string } })
     if (body.treatmentName) updates.treatmentName = body.treatmentName;
     if (body.quantity !== undefined) updates.quantity = Math.max(1, Math.floor(Number(body.quantity)));
     if (body.unitPrice !== undefined) updates.unitPrice = toTwoDpString(Number(body.unitPrice));
-
-    // recompute shares if price/qty changed
-    if (updates.quantity !== undefined || updates.unitPrice !== undefined) {
-      const member = await prisma.member.findUnique({ where: { id: existing.treatment.memberId }, select: { coveragePercent: true } });
-      const coverage = member?.coveragePercent ?? 0;
-      const qty = updates.quantity ?? existing.quantity;
-      const price = updates.unitPrice !== undefined ? Number(updates.unitPrice) : Number(existing.unitPrice);
-      const total = qty * price;
-      updates.insurerShare = toTwoDpString(total * (coverage / 100));
-      updates.memberShare = toTwoDpString(total - Number(updates.insurerShare));
-    }
 
     await prisma.treatmentItem.update({ where: { id: params.id }, data: updates });
     return NextResponse.json({ ok: true });

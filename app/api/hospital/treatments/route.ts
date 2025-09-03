@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
 
     const body = await req.json();
-    const { memberId, treatmentItems } = body;
+    const { memberId, treatmentItems, code } = body;
     if (!memberId || !Array.isArray(treatmentItems) || treatmentItems.length === 0) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
 
     // get member coverage and org
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
 
     // create treatment
-    const treatment = await prisma.treatment.create({ data: { organizationId, memberId, usercreator: userId ?? 'unknown' } });
+    const treatment = await prisma.treatment.create({ data: { organizationId, memberId, usercreator: userId ?? 'unknown', code } });
 
     // create items in transaction and compute per-item shares
     const createdItems = await prisma.$transaction(
@@ -65,17 +65,12 @@ export async function POST(req: Request) {
         const name = (it.treatmentName ?? '').trim();
         const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
         const price = Number(it.unitPrice) || 0;
-        const total = qty * price;
-        const insurerShare = +(total * ((member.coveragePercent ?? 0) / 100));
-        const memberShare = total - insurerShare;
         return prisma.treatmentItem.create({
           data: {
             treatmentId: treatment.id,
             treatmentName: name,
             quantity: qty,
             unitPrice: toTwoDpString(price),
-            insurerShare: toTwoDpString(insurerShare),
-            memberShare: toTwoDpString(memberShare),
           },
           select: { id: true, treatmentName: true, quantity: true, unitPrice: true }
         });
@@ -96,7 +91,7 @@ export async function POST(req: Request) {
       totals: { totalAmount, insurerShare, memberShare },
       createdAt: new Date(treatment.createdAt || Date.now()),
       createdBy: (session as any).user?.name ?? (session as any).user?.email ?? 'System',
-      treatmentId: treatment.id,
+      treatmentId: treatment.code,
     });
 
     // save pdf and update treatment

@@ -41,25 +41,16 @@ export async function POST(req: Request) {
     const treatment = await prisma.treatment.findUnique({ where: { id: treatmentId }, select: { organizationId: true, memberId: true } });
     if (!treatment || treatment.organizationId !== organizationId) return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 });
 
-    const member = await prisma.member.findUnique({ where: { id: treatment.memberId }, select: { coveragePercent: true } });
-    const coverage = member?.coveragePercent ?? 0;
-
     const created = await prisma.$transaction(
       items.map((it: any) => {
         const qty = Math.max(1, Math.floor(Number(it.quantity) || 1));
         const price = Number(it.unitPrice) || 0;
-        const total = qty * price;
-        const insurerShare = total * (coverage / 100);
-        const memberShare = total - insurerShare;
         return prisma.treatmentItem.create({
           data: {
             treatmentId,
             treatmentName: (it.treatmentName ?? '').trim(),
             quantity: qty,
-            unitPrice: toTwoDpString(price),
-            insurerShare: toTwoDpString(insurerShare),
-            memberShare: toTwoDpString(memberShare),
-          }
+            unitPrice: toTwoDpString(price),          }
         });
       })
     );

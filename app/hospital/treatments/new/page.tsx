@@ -14,15 +14,11 @@ interface Member {
   coveragePercent?: number; // from Prisma schema
 }
 
-interface HospitalService {
-  id: string;
-  name: string;
-}
-
 interface TreatmentItemInput {
   treatmentName: string;
   quantity: number;
   unitPrice: number;
+  code: string;
   localId: string;
 }
 
@@ -63,6 +59,7 @@ export default function TreatmentsClient() {
   const [members, setMembers] = useState<Member[]>([]);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [code, setCode] = useState<string | null>(null);
 
   // Line items
   const [lineItems, setLineItems] = useState<TreatmentItemInput[]>([]);
@@ -80,6 +77,12 @@ export default function TreatmentsClient() {
       const newmembers = await mres.json();
       setMembers(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, coveragePercent: m.coveragePercent })));
     }
+
+    const code = await fetch('/api/hospital/code');
+    if (code.ok) {
+      const newCode = await code.json();
+      setCode(newCode);
+    }
   };
 
   useEffect(() => {
@@ -89,23 +92,9 @@ export default function TreatmentsClient() {
     return () => clearTimeout(id);
   }, [memberQuery]);
 
-  const totals = useMemo(() => {
-    const cents = lineItems.reduce((s, li) => {
-      const unitCents = Math.round((li.unitPrice || 0) * 100);
-      const qty = Math.max(0, Math.floor(li.quantity || 0));
-      return s + unitCents * qty;
-    }, 0);
-    const totalAmount = cents / 100;
-    const coverage = selectedMember?.coveragePercent ?? 0;
-    const insurerCents = Math.round(cents * (coverage / 100));
-    const insurerShare = insurerCents / 100;
-    const memberShare = (cents - insurerCents) / 100;
-    return { totalAmount, insurerShare, memberShare };
-  }, [lineItems, selectedMember?.coveragePercent]);
-
   // Add a completely new empty line (makeLocalId only called here)
   function addBlankLine() {
-    setLineItems(prev => [...prev, { treatmentName: '', quantity: 1, unitPrice: 0, localId: makeLocalId() }]);
+    setLineItems(prev => [...prev, { treatmentName: '', quantity: 1, unitPrice: 0, localId: makeLocalId(), code: code ??'' }]);
   }
 
   // Stable update/remove helpers using localId
@@ -140,11 +129,11 @@ export default function TreatmentsClient() {
     try {
       await ensureLineItemsPersisted();
       const finalItems = lineItems.map(li => ({ ...li }));
-      const treatmentItems = finalItems.map(li => ({ treatmentName: li.treatmentName, unitPrice: li.unitPrice, quantity: li.quantity, insurerShare: totals.insurerShare,
-        memberShare: totals.memberShare }));
+      const treatmentItems = finalItems.map(li => ({ treatmentName: li.treatmentName, unitPrice: li.unitPrice, quantity: li.quantity }));
       const payload = {
         memberId: selectedMember.id,
-        treatmentItems,
+        code: code,
+        treatmentItems
       };
       const res = await fetchJson('/api/hospital/treatments', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
@@ -157,6 +146,9 @@ export default function TreatmentsClient() {
 
   // add an initial blank line
   useEffect(() => { if (lineItems.length === 0) addBlankLine(); }, []);
+
+  console.log(code);
+
 
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto">
@@ -186,7 +178,9 @@ export default function TreatmentsClient() {
       {/* Services & items */}
       <Card>
         <CardContent className="space-y-2">
-          <h2 className="text-lg font-semibold">2) Add Services</h2>
+          <h2 className="text-lg font-semibold">2) Add Services
+            <span className="text-sm text-gray-600"> (Bon: {code})</span>
+          </h2>
 
           <div className="text-sm text-gray-600">Type each service name directly on its line.</div>
 
@@ -256,43 +250,18 @@ export default function TreatmentsClient() {
                 </tr>
               </tbody>
             </table>
-          </div>
-        </CardContent>
-      </Card>
+            <div className='mt-4'>
+              {saveError && <div className="text-sm text-red-600">{saveError}</div>}
 
-      {/* Summary & save */}
-      <Card>
-        <CardContent className="space-y-2">
-          <h2 className="text-lg font-semibold">3) Summary & Save</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-gray-600">Total amount</div>
-              <div className="text-xl font-semibold">{totals.totalAmount.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-600">Insurer share ({selectedMember?.coveragePercent ?? 0}%)</div>
-              <div className="text-xl font-semibold">{totals.insurerShare.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-600">Member share</div>
-              <div className="text-xl font-semibold">{totals.memberShare.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-600"># services</div>
-              <div className="text-xl font-semibold">{lineItems.length}</div>
+              <div className="flex gap-2">
+                <Button onClick={saveTreatment} disabled={saving}>{saving ? 'Saving…' : 'Save treatment & generate receipt'}</Button>
+                <Button variant="secondary" onClick={() => { setLineItems([]); setReceiptUrl(null); }}>Reset</Button>
+              </div>
+              {receiptUrl && (
+                <div className="text-sm mt-2">Receipt: <a className="text-blue-700 underline" href={receiptUrl} target="_blank" rel="noreferrer">Open</a></div>
+              )}
             </div>
           </div>
-
-          {saveError && <div className="text-sm text-red-600">{saveError}</div>}
-
-          <div className="flex gap-2">
-            <Button onClick={saveTreatment} disabled={saving}>{saving ? 'Saving…' : 'Save treatment & generate receipt'}</Button>
-            <Button variant="secondary" onClick={() => { setLineItems([]); setReceiptUrl(null); }}>Reset</Button>
-          </div>
-
-          {receiptUrl && (
-            <div className="text-sm mt-2">Receipt: <a className="text-blue-700 underline" href={receiptUrl} target="_blank" rel="noreferrer">Open</a></div>
-          )}
         </CardContent>
       </Card>
     </div>

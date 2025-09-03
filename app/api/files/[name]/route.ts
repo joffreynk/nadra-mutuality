@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server';
 import { readFileFromStorage } from '@/lib/storage';
 
 export async function GET(_req: Request, { params }: { params: { name: string } }) {
+  const pname = await params.name;
   try {
-    const name = decodeURIComponent(params.name);
+    const name = decodeURIComponent(pname);
     const data = await readFileFromStorage(name);
     const isPdf = name.toLowerCase().endsWith('.pdf');
     return new NextResponse(data, {
