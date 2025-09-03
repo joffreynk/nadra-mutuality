@@ -5,7 +5,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { CreatePharmacyRequestBody } from '@/lib/validations';
-import { z } from 'zod';
 
 interface Member {
   id: string;
@@ -18,6 +17,7 @@ interface PharmacyItemInput {
   mdecineName: string;
   quantity: number;
   localId: string;
+  unitPrice?: number | null;
 }
 
 // ===== Utilities: robust JSON fetch (copied/embedded for safety) =====
@@ -211,6 +211,7 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
         <CardContent className="space-y-2">
           <h2 className="text-lg font-semibold">2) Medicines</h2>
           <div className="text-sm text-gray-600">Type each medicine on its own line.</div>
+          <div className="text-sm text-red-600">{msg}</div>
 
           {/* responsive table-like list */}
           <div className="overflow-x-auto mt-3">

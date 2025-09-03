@@ -234,6 +234,7 @@ model Category {
 model Treatment {
   id                   String          @id @default(cuid())
   organizationId       String
+  code String @unique
   organization         Organization    @relation(fields: [organizationId], references: [id])
   memberId             String
   member               Member          @relation(fields: [memberId], references: [id])
@@ -243,6 +244,7 @@ model Treatment {
   user         User     @relation(fields: [usercreator], references: [id], onDelete: Cascade)
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
+  tcode PharmacyRequest?
 }
 
 model TreatmentItem {
@@ -252,8 +254,6 @@ model TreatmentItem {
   treatmentName     String
   quantity          Int              @default(1)
   unitPrice         Decimal         @db.Decimal(10, 2)
-  insurerShare         Decimal?        @db.Decimal(10, 2)
-  memberShare          Decimal?        @db.Decimal(10, 2)
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
 }
@@ -266,6 +266,8 @@ model PharmacyRequest {
   organization         Organization    @relation(fields: [organizationId], references: [id])
   memberId             String
   member               Member          @relation(fields: [memberId], references: [id])
+  code String @unique
+  tcodes Treatment @relation(fields: [code], references:[code])
   usercreator       String
   user         User     @relation(fields: [usercreator], references: [id], onDelete: Cascade)
   createdAt            DateTime        @default(now())
@@ -284,8 +286,6 @@ model PharmacyRequestItem {
   pharmacyRequest         PharmacyRequest        @relation(fields: [pharmacyRequestId], references: [id])
   userAproverId       String?
   user         User?     @relation(fields: [userAproverId], references: [id], onDelete: Cascade)
-  insurerShare         Decimal?        @db.Decimal(10, 2)
-  memberShare          Decimal?        @db.Decimal(10, 2)
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
 }

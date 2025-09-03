@@ -15,6 +15,7 @@ export const CreatePharmacyRequestBody = z.object({
 export const PharmacyItemUpdate = PharmacyItemCreate.extend({
   id: z.string().optional(),
   status: z.string().optional(),
+  unitPrice: z.coerce.number().nullable(),
 });
 
 export const UpdatePharmacyRequestBody = z.object({
@@ -24,5 +25,5 @@ export const UpdatePharmacyRequestBody = z.object({
 export const ItemStatusAction = z.object({
   action: z.enum(['Approved', 'Reverted']),
   note: z.string().optional(),
-  unitPrice: z.coerce.number().nonnegative('Unit price must be >= 0').nullable().optional(),
+  unitPrice: z.coerce.number().nullable(),
 });

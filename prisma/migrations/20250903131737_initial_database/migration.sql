@@ -143,19 +143,6 @@ CREATE TABLE `Claim` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `Medicine` (
-    `id` VARCHAR(191) NOT NULL,
-    `organizationId` VARCHAR(191) NOT NULL,
-    `code` VARCHAR(191) NOT NULL,
-    `name` VARCHAR(191) NOT NULL,
-    `price` DECIMAL(10, 2) NOT NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL,
-
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
 CREATE TABLE `AuditLog` (
     `id` VARCHAR(191) NOT NULL,
     `organizationId` VARCHAR(191) NULL,
@@ -228,16 +215,14 @@ CREATE TABLE `Category` (
 CREATE TABLE `Treatment` (
     `id` VARCHAR(191) NOT NULL,
     `organizationId` VARCHAR(191) NOT NULL,
+    `code` VARCHAR(191) NOT NULL,
     `memberId` VARCHAR(191) NOT NULL,
-    `providerType` VARCHAR(191) NOT NULL,
-    `status` VARCHAR(191) NOT NULL DEFAULT 'Open',
-    `totalAmount` DECIMAL(10, 2) NULL,
-    `insurerShare` DECIMAL(10, 2) NULL,
-    `memberShare` DECIMAL(10, 2) NULL,
     `receiptUrl` VARCHAR(191) NULL,
+    `usercreator` VARCHAR(191) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    UNIQUE INDEX `Treatment_code_key`(`code`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -245,10 +230,11 @@ CREATE TABLE `Treatment` (
 CREATE TABLE `TreatmentItem` (
     `id` VARCHAR(191) NOT NULL,
     `treatmentId` VARCHAR(191) NOT NULL,
-    `medicineId` VARCHAR(191) NULL,
     `treatmentName` VARCHAR(191) NOT NULL,
     `quantity` INTEGER NOT NULL DEFAULT 1,
     `unitPrice` DECIMAL(10, 2) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -258,25 +244,39 @@ CREATE TABLE `PharmacyRequest` (
     `id` VARCHAR(191) NOT NULL,
     `organizationId` VARCHAR(191) NOT NULL,
     `memberId` VARCHAR(191) NOT NULL,
-    `status` VARCHAR(191) NOT NULL DEFAULT 'Pending',
-    `totalAmount` DECIMAL(10, 2) NULL,
-    `insurerShare` DECIMAL(10, 2) NULL,
-    `memberShare` DECIMAL(10, 2) NULL,
-    `receiptUrl` VARCHAR(191) NULL,
+    `code` VARCHAR(191) NOT NULL,
+    `usercreator` VARCHAR(191) NOT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    INDEX `PharmacyRequest_organizationId_idx`(`organizationId`),
+    UNIQUE INDEX `PharmacyRequest_code_key`(`code`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
 CREATE TABLE `PharmacyRequestItem` (
     `id` VARCHAR(191) NOT NULL,
-    `requestId` VARCHAR(191) NOT NULL,
-    `medicineId` VARCHAR(191) NOT NULL,
+    `mdecineName` VARCHAR(191) NOT NULL,
     `quantity` INTEGER NOT NULL DEFAULT 1,
-    `unitPrice` DECIMAL(10, 2) NOT NULL,
+    `unitPrice` DECIMAL(10, 2) NULL,
+    `status` VARCHAR(191) NOT NULL DEFAULT 'Pending',
+    `pharmacyRequestId` VARCHAR(191) NOT NULL,
+    `userAproverId` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `PharmacyRequestReceipt` (
+    `id` VARCHAR(191) NOT NULL,
+    `organizationId` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `pharmacyRequestId` VARCHAR(191) NOT NULL,
+    `url` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -315,9 +315,6 @@ ALTER TABLE `Claim` ADD CONSTRAINT `Claim_organizationId_fkey` FOREIGN KEY (`org
 ALTER TABLE `Claim` ADD CONSTRAINT `Claim_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `Member`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `Medicine` ADD CONSTRAINT `Medicine_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE `AuditLog` ADD CONSTRAINT `AuditLog_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -339,10 +336,10 @@ ALTER TABLE `Treatment` ADD CONSTRAINT `Treatment_organizationId_fkey` FOREIGN K
 ALTER TABLE `Treatment` ADD CONSTRAINT `Treatment_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `Member`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `TreatmentItem` ADD CONSTRAINT `TreatmentItem_treatmentId_fkey` FOREIGN KEY (`treatmentId`) REFERENCES `Treatment`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `Treatment` ADD CONSTRAINT `Treatment_usercreator_fkey` FOREIGN KEY (`usercreator`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `TreatmentItem` ADD CONSTRAINT `TreatmentItem_medicineId_fkey` FOREIGN KEY (`medicineId`) REFERENCES `Medicine`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `TreatmentItem` ADD CONSTRAINT `TreatmentItem_treatmentId_fkey` FOREIGN KEY (`treatmentId`) REFERENCES `Treatment`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `PharmacyRequest` ADD CONSTRAINT `PharmacyRequest_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -351,7 +348,22 @@ ALTER TABLE `PharmacyRequest` ADD CONSTRAINT `PharmacyRequest_organizationId_fke
 ALTER TABLE `PharmacyRequest` ADD CONSTRAINT `PharmacyRequest_memberId_fkey` FOREIGN KEY (`memberId`) REFERENCES `Member`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `PharmacyRequestItem` ADD CONSTRAINT `PharmacyRequestItem_requestId_fkey` FOREIGN KEY (`requestId`) REFERENCES `PharmacyRequest`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `PharmacyRequest` ADD CONSTRAINT `PharmacyRequest_code_fkey` FOREIGN KEY (`code`) REFERENCES `Treatment`(`code`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `PharmacyRequestItem` ADD CONSTRAINT `PharmacyRequestItem_medicineId_fkey` FOREIGN KEY (`medicineId`) REFERENCES `Medicine`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `PharmacyRequest` ADD CONSTRAINT `PharmacyRequest_usercreator_fkey` FOREIGN KEY (`usercreator`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `PharmacyRequestItem` ADD CONSTRAINT `PharmacyRequestItem_pharmacyRequestId_fkey` FOREIGN KEY (`pharmacyRequestId`) REFERENCES `PharmacyRequest`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `PharmacyRequestItem` ADD CONSTRAINT `PharmacyRequestItem_userAproverId_fkey` FOREIGN KEY (`userAproverId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `PharmacyRequestReceipt` ADD CONSTRAINT `PharmacyRequestReceipt_organizationId_fkey` FOREIGN KEY (`organizationId`) REFERENCES `Organization`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `PharmacyRequestReceipt` ADD CONSTRAINT `PharmacyRequestReceipt_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `PharmacyRequestReceipt` ADD CONSTRAINT `PharmacyRequestReceipt_pharmacyRequestId_fkey` FOREIGN KEY (`pharmacyRequestId`) REFERENCES `PharmacyRequest`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
