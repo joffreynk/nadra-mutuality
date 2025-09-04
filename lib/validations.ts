@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const PharmacyItemCreate = z.object({
   mdecineName: z.string().min(1, 'Medicine name required'),
   quantity: z.coerce.number().int().min(1, 'Quantity must be >= 1'),
-  unitPrice: z.coerce.number().nullable(),
+  unitPrice: z.coerce.number().nullable().optional(),
 });
 
 export const CreatePharmacyRequestBody = z.object({
@@ -15,7 +15,7 @@ export const CreatePharmacyRequestBody = z.object({
 export const PharmacyItemUpdate = PharmacyItemCreate.extend({
   id: z.string().optional(),
   status: z.string().optional(),
-  unitPrice: z.coerce.number().nullable(),
+  unitPrice: z.coerce.number().nullable().optional(),
 });
 
 export const UpdatePharmacyRequestBody = z.object({

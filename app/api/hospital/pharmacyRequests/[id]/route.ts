@@ -36,6 +36,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   let payload: any;
   try {
     payload = await req.json();
+    console.log('PUT payload', payload);
+    
     UpdatePharmacyRequestBody.parse(payload);
   } catch (e: any) {
     if (e?.issues) return NextResponse.json({ error: 'Validation error', details: e.issues }, { status: 400 });
@@ -61,7 +63,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             data: {
               mdecineName: it.mdecineName,
               quantity: it.quantity,
-              unitPrice: null,
             },
           });
         } else {
@@ -70,8 +71,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
               pharmacyRequestId: params.id,
               mdecineName: it.mdecineName,
               quantity: it.quantity,
-              unitPrice: null,
-              status: 'Pending',
             },
           });
         }

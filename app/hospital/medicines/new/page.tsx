@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,14 @@ import { CreatePharmacyRequestBody } from '@/lib/validations';
 
 interface Member {
   id: string;
-  memberCode?: string;
-  name: string;
-  coveragePercent?: number;
+  code: string;
+  member: {
+    id: string;
+    memberCode?: string;
+    name: string;
+    coveragePercent?: number;
+  };
+  user: {id: string; name: string; };
 }
 
 interface PharmacyItemInput {
@@ -58,11 +63,11 @@ const makeLocalId = () => `local-${Date.now()}-${Math.random().toString(36).slic
 export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ initialMemberId?:string }) {
   // Member search
   const [memberQuery, setMemberQuery] = useState('');
-  const [members, setMembers] = useState<Member[]>([]);
+  const [member, setMember] = useState<Member | null>(null);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const memberDebounceRef = useRef<number | null>(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   // Line items
   const [items, setItems] = useState<PharmacyItemInput[]>([{ localId: makeLocalId(), mdecineName:'', quantity:1}]);
@@ -74,12 +79,12 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
   // Debounced member search (simple GET /api/members?q=...)
   useEffect(() => {
     if (memberDebounceRef.current) window.clearTimeout(memberDebounceRef.current);
-    if (!memberQuery.trim()) { setMembers([]); setMembersError(null); return; }
+    if (!memberQuery.trim()) { setMember(null); setMembersError(null); return; }
     memberDebounceRef.current = window.setTimeout(async () => {
       setMembersLoading(true); setMembersError(null);
       try {
-        const data = await fetchJson(`/api/members?q=${encodeURIComponent(memberQuery.trim())}`);
-        setMembers(Array.isArray(data) ? data.map((m:any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, coveragePercent: m.coveragePercent })) : []);
+        const data = await fetchJson(`/api/members/treatedMember?q=${encodeURIComponent(memberQuery.trim())}`);
+        setMember(data || null);
       } catch (e:any) {
         setMembersError(e.message || String(e));
       } finally {
@@ -88,6 +93,7 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
     }, 300);
     return () => { if (memberDebounceRef.current) window.clearTimeout(memberDebounceRef.current); };
   }, [memberQuery]);
+  
 
   // Item helpers
   function updateItemById(localId: string, patch: Partial<PharmacyItemInput>) {
@@ -113,7 +119,8 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
       }
       // build payload in shape zod expects
       const payload = {
-        memberId: selectedMember.id,
+        memberId: selectedMember.member.id,
+        code: selectedMember.code,
         items: items.map(it => ({ mdecineName: String(it.mdecineName || '').trim(), quantity: Number(it.quantity || 0) })),
       };
       // validate client-side
@@ -148,21 +155,6 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
     }
   }
 
-  // Initialize member if provided
-  useEffect(() => {
-    if (initialMemberId) {
-      // quick fetch single member by id
-      (async () => {
-        try {
-          const m = await fetchJson(`/api/members/${encodeURIComponent(initialMemberId)}`);
-          if (m && m.id) setSelectedMember({ id: m.id, name: m.name, memberCode: m.memberCode, coveragePercent: m.coveragePercent });
-        } catch {
-          // ignore
-        }
-      })();
-    }
-  }, [initialMemberId]);
-
   return (
     <div className="p-4 max-w-4xl mx-auto space-y-4">
       <Card>
@@ -179,30 +171,28 @@ export default function HospitalPharmacyRequestEditor({ initialMemberId }:{ init
             </div>
 
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => { setMemberQuery(''); setMembers([]); setMembersError(null); }}>Clear</Button>
+              <Button variant="secondary" onClick={() => { setMemberQuery(''); setSelectedMember(null); setMembersError(null); }}>Clear</Button>
             </div>
           </div>
 
           {membersLoading && <div className="text-sm text-gray-500">Searching members…</div>}
           {membersError && <div className="text-sm text-red-600">{membersError}</div>}
 
-          {members.length > 0 && (
+          {member  && (
             <div className="border rounded-md max-h-56 overflow-auto">
-              {members.map(m => (
-                <button
-                  key={m.id}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"
-                  onClick={() => { setSelectedMember(m); setMemberQuery(''); setMembers([]); }}
-                >
-                  <div className="font-medium">{m.name}</div>
-                  <div className="text-xs text-gray-600">Code: {m.memberCode ?? '-'} • Coverage: {m.coveragePercent ?? 0}%</div>
-                </button>
-              ))}
+              <div
+                key={member.id}
+                className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"
+                onClick={() => { setSelectedMember(member); setMemberQuery(''); setMember(null); }}
+              >
+                <div className="font-medium">{member.member.name}</div>
+                  <div className="text-xs text-gray-600">Code: {member.member.memberCode ?? '-'} • Coverage: {member.member.coveragePercent ?? 0}%</div>
+                </div>
             </div>
           )}
 
           {selectedMember && (
-            <div className="text-sm text-green-700">Selected: {selectedMember.name} (Coverage {selectedMember.coveragePercent ?? 0}%)</div>
+            <div className="text-sm text-green-700">Selected: {selectedMember.member.name} (Coverage {selectedMember.member.coveragePercent ?? 0}%) Treatment ID: {selectedMember.code ?? 0} orderedBy: {selectedMember.user.name ?? ''}</div>
           )}
         </CardContent>
       </Card>

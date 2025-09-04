@@ -36,6 +36,7 @@ export default async function Sidebar() {
             <SidebarLink href="/pharmacy/coverage" label="Coverage Check" />
             <SidebarLink href="/pharmacy/claims" label="Claims" />
             <SidebarLink href="/pharmacy/claims/new" label="New Claim" />
+            <SidebarLink href="/hospital/medicines" label="Medicines" />
             <SidebarLink href="/pharmacy/requests" label="Requests" />
             <SidebarLink href="/pharmacy/receipts" label="Receipts" />
             <SidebarLink href="/pharmacy/reports" label="Reports" />
@@ -48,7 +49,7 @@ export default async function Sidebar() {
             <SidebarLink href="/hospital/authorization" label="Authorization" />
             <SidebarLink href="/hospital/claims" label="Claims" />
             <SidebarLink href="/hospital/treatments" label="Treatments" />
-            <SidebarLink href="/hospital/medecines" label="Medicines" />
+            <SidebarLink href="/hospital/medicines" label="Medicines" />
             <SidebarLink href="/hospital/requests" label="Requests" />
             <SidebarLink href="/pharmacy/receipts" label="Receipts" />
             <SidebarLink href="/hospital/reports" label="Reports" />

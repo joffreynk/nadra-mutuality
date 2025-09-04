@@ -90,8 +90,8 @@ export async function GET(req: Request) {
   const members = await prisma.member.findMany({ 
     where,
     include: { company: true },
-    orderBy: { createdAt: 'desc' }
-  });  
+    orderBy: { createdAt: 'desc' },
+  });
   if (!members) return NextResponse.json({ error: 'No members found' }, { status: 404 });
   return NextResponse.json(members.map((m: any) => ({
     ...m,

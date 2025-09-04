@@ -16,17 +16,18 @@ export default function PharmacyRequestsDashboard(){
   const [q, setQ] = useState('');
   const [requests, setRequests] = useState<any[]>([]);
   const [selected, setSelected] = useState<any|null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string|null>(null);
+  const [session, setSession] = useState(null)
 
   async function load(){
-    setLoading(true); setError(null);
     try {
       const url = q ? `/api/pharmacy/requests?memberId=${encodeURIComponent(q)}` : '/api/pharmacy/requests';
       const data = await fetchJson(url);
       setRequests(Array.isArray(data) ? data : []);
-    } catch (e:any) { setError(e.message || String(e)); }
-    finally { setLoading(false); }
+
+      const sessionData = await fetchJson('/api/auth/session');
+      setSession(sessionData);
+    } catch (e:any) {throw new Error(e.message || String(e));}
+    finally { }
   }
 
   useEffect(()=>{ load(); }, []);
@@ -42,7 +43,7 @@ export default function PharmacyRequestsDashboard(){
       });
       // update local
       setRequests(prev => prev.map(r => r.id === selected.id ? { ...r, pharmacyRequests: r.pharmacyRequests.map((it:any)=> it.id===itemId ? {...it, status: action} : it) } : r));
-      setSelected((prev:any) => prev ? { ...prev, pharmacyRequests: prev.pharmacyRequests.map((it:any)=> it.id===itemId ? {...it, status: action} : it) } : prev);
+      setSelected((prev:any) => prev ? { ...prev, pharmacyRequests: prev.pharmacyRequests.map((it:any)=> it.id===itemId ? {...it, status: action} : it),  } : prev);
     } catch (e:any) {
       alert(e.message || String(e));
     }
@@ -67,7 +68,7 @@ export default function PharmacyRequestsDashboard(){
           <RequestList requests={requests} onSelect={(r)=>setSelected(r)} />
         </div>
         <div>
-          <RequestDetail request={selected} onAction={onAction} />
+          <RequestDetail request={selected} onAction={onAction} session={session} />
         </div>
       </div>
     </div>

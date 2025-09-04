@@ -49,9 +49,38 @@ export default function RequestEditModal({
 
   function update(iLocalId: string, patch: Partial<ItemRow>) {
     setItems(prev => prev.map(r => r.localId === iLocalId ? { ...r, ...patch } : r));
-  }
+  }  
   function addRow() { setItems(prev => [...prev, { id: undefined, localId: makeLocalId(), mdecineName: '', quantity: 1 }]); }
-  function removeRow(localId: string) { setItems(prev => prev.filter(r => r.localId !== localId)); }
+
+
+  async function removeRow(localId: string) {
+  const item = items.find(i => i.localId === localId);
+  if (!item) return;
+  const itemDbId = item.id ?? null;
+  const cameFromServer = !!itemDbId && (initialItems || []).some(ii => String(ii.id) === String(itemDbId));
+  if (cameFromServer) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/pharmacy/requests/${requestId}/items/${encodeURIComponent(String(itemDbId))}/status`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => res.statusText);
+        throw new Error(txt || 'Delete failed');
+      }
+    } catch (e: any) {
+      console.error('Delete failed', e);
+      setError(e?.message ?? 'Delete failed');
+      setBusy(false);
+      return;
+    } finally {
+      setBusy(false);
+    }
+  }
+  setItems(prev => prev.filter(r => r.localId !== localId));
+}
+
+
   async function handleSave() {
     setError(null);
     // prepare payload
@@ -105,7 +134,13 @@ export default function RequestEditModal({
                   <Input type="number" min={1} value={it.quantity} onChange={e => update(it.localId, { quantity: Math.max(1, Number(e.target.value) || 1) })} />
                 </div>
                 <div className="md:col-span-1 text-right">
-                  <button className="p-2 rounded hover:bg-red-50 text-red-600" onClick={() => removeRow(it.localId)} disabled={busy || items.length === 1}>Remove</button>
+                <button
+                  className="p-2 rounded hover:bg-red-50 text-red-600"
+                  onClick={() => removeRow(it.localId)}
+                  disabled={busy || items.length === 1}
+                >
+                  Remove
+                </button>
                 </div>
               </div>
             ))}

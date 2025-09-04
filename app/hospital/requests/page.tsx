@@ -35,7 +35,7 @@ export default function HospitalMyRequestsPage() {
       {loading && <div>Loading…</div>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {list.map(req => (
+        {list.length >0? list.map(req => (
           <Card key={req.id}>
             <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
@@ -50,7 +50,7 @@ export default function HospitalMyRequestsPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+        )): !loading && <div>No Medicines request found.</div>}
       </div>
 
       {openRequestId && (

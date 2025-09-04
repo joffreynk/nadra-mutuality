@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
     const list = await prisma.pharmacyRequest.findMany({
       where,
-      include: { pharmacyRequests: true, member: true, user: { select: { id: true, name: true } } },
+      include: { pharmacyRequests: {include: { user: { select: { id: true, name: true  }} }}, member: true, user: { select: { id: true, name: true  } } },
       orderBy: { createdAt: 'desc' },
     });
 

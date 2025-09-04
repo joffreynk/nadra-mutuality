@@ -147,9 +147,6 @@ export default function TreatmentsClient() {
   // add an initial blank line
   useEffect(() => { if (lineItems.length === 0) addBlankLine(); }, []);
 
-  console.log(code);
-
-
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto">
       {/* Member selection */}

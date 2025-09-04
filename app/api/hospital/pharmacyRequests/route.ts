@@ -56,6 +56,8 @@ export async function POST(req: Request) {
   let payload: any;
   try {
     payload = await req.json();
+    console.log(payload);
+    
     CreatePharmacyRequestBody.parse(payload);
   } catch (e: any) {
     if (e?.issues) return NextResponse.json({ error: 'Validation error', details: e.issues }, { status: 400 });
@@ -69,6 +71,7 @@ export async function POST(req: Request) {
           organizationId,
           memberId: payload.memberId,
           usercreator: userId,
+          code: payload.code,
         },
       });
 

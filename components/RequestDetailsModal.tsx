@@ -72,17 +72,6 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
     finally { setBusyItemId(null); }
   }
 
-  async function doDelete(itemId: string) {
-    if (!confirm('Delete this medicine?')) return;
-    setBusyItemId(itemId);
-    try {
-      const res = await fetch(`/api/pharmacy/requests/${requestId}/items/${itemId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(await res.text());
-      await load(); onChanged?.();
-    } catch (e:any) { console.error(e); setErr(e?.message ?? 'Delete failed'); }
-    finally { setBusyItemId(null); }
-  }
-
   if (!request) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded p-6 max-w-lg w-full">
@@ -154,11 +143,7 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
                         <Button variant="ghost" disabled={!!busyItemId} onClick={() => postAction(it.id, { action: 'Reverted' })}>
                           Revert
                         </Button>
-                      )}
-                      {/* creator can remove pending items */}
-                      {isCreator && !isApproved && (
-                        <Button variant="destructive" onClick={() => doDelete(it.id)} disabled={!!busyItemId}>Delete</Button>
-                      )}
+                      )}                      
                     </div>
                   </CardContent>
                 </Card>
