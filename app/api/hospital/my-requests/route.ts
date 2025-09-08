@@ -37,25 +37,24 @@ export async function GET(req: Request) {
       where: {
         organizationId,
         pharmacyRequests: {
-          some: { status: 'Pending' }
-        }
+          some: { status: { in: ['Pending', 'Reverted'] } }, // filter parent requests
+        },
       },
       include: {
-        member: true,
+        member: { select: { id: true, name: true, memberCode: true } },
         user: { select: { id: true, name: true, role: true } },
         pharmacyRequests: {
-          where: { status: 'Pending' },
+          where: { status: { in: ['Pending', 'Reverted'] } }, // filter child requests
           orderBy: { createdAt: 'asc' },
           include: {
-            user: { select: { id: true, name: true, role: true } }
-          }
+            user: { select: { id: true, name: true, role: true } },
+          },
         },
         pharmacyRequestReceipts: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 500,
     });
-
 
     return NextResponse.json(list);
   } catch (err: any) {

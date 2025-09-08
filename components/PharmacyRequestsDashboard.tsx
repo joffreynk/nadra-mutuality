@@ -34,7 +34,7 @@ export default function PharmacyRequestsDashboard(){
 
   async function onAction(itemId:string, currentStatus:string){
     if (!selected) return;
-    const action = currentStatus === 'Approved' ? 'Reverted' : 'Approved';
+    const action = currentStatus === 'Approved' ? 'Pending' : 'Approved';
     try {
       await fetchJson(`/api/pharmacy/requests/${selected.id}/items/${itemId}/status`, {
         method: 'POST',

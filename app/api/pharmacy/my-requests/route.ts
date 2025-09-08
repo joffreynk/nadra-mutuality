@@ -24,7 +24,7 @@ export async function GET(req: Request) {
       OR: [
         { usercreator: userId },
         { pharmacyRequests: { some: { userAproverId: userId } } },
-        { pharmacyRequests: { some: { status: 'Pending' } } },
+        { pharmacyRequests: { some: { status: { in: ['Pending', 'Reverted'] } } } },
       ],
     };
 
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       member: true,
       user: { select: { id: true, name: true } }, // request creator
       pharmacyRequests: {
-        where: { status: { in: ['Pending', 'Approved'] } },
+        where: { status: { in: ['Pending', 'Reverted'] } },
         orderBy: { createdAt: 'asc' },
         include: {
           user: { select: { id: true, name: true } } // approver user (nullable)

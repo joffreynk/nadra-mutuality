@@ -23,7 +23,7 @@ export const UpdatePharmacyRequestBody = z.object({
 });
 
 export const ItemStatusAction = z.object({
-  action: z.enum(['Approved', 'Reverted']),
+  action: z.enum(['Approved', 'Pending']),
   note: z.string().optional(),
-  unitPrice: z.coerce.number().nullable(),
+  unitPrice: z.coerce.number().nullable().optional(),
 });

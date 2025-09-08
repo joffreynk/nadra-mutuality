@@ -33,10 +33,10 @@ export default function RequestDetail({ request, onAction, session }: { session:
                   <div className="text-xs text-gray-500">Qty: {it.quantity} • Unit: {Number(it.unitPrice).toFixed(2)}</div>
                 </div>
                 <div className="flex items-center gap-2 mt-2 sm:mt-0">
-                  <div className={`text-sm font-medium ${it.status==='Approved'?'text-green-600': it.status==='Reverted'?'text-orange-600':'text-gray-600'}`}>{it.status} <div></div>By {it.user.name ?? ''}</div>
+                  <div className={`text-sm font-medium ${it.status==='Approved'?'text-green-600': it.status==='Pending'?'text-orange-600':'text-gray-600'}`}>{it.status} {it.status === 'Approved' &&(<div>By {it?.user?.name ?? ''}</div>)}</div>
                 </div>
                 {
-                  isWithinExactHours(it.createdAt, 48) && session.user.id === it.userAproverId && (
+                  isWithinExactHours(it.updatedAt) && it.status === 'Approved' && session.user.id === it.userAproverId && (
                     <div className="flex justify-end">
                   <Button variant="secondary" onClick={()=>onAction(it?.id, it?.status)}>{it.status === 'Approved' ? 'Revert' : 'Approve'}</Button>
                 </div>

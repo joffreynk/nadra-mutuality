@@ -21,8 +21,9 @@ export default function HospitalMyRequestsPage() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch('/api/hospital/my-requests');
+      const res = await fetch('/api/hospital/requests');
       const data = await res.json();
+      console.log('Fetched data:', JSON.stringify(data, null, 2));
       setList(Array.isArray(data) ? data : []);
     } catch (e:any) { console.error(e); }
     finally { setLoading(false); }
