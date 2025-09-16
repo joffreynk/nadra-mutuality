@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { CreatePharmacyRequestBody } from '@/lib/validations';
+import { use } from 'react';
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
     const startDate = url.searchParams.get('startDate') ?? undefined;
     const endDate = url.searchParams.get('endDate') ?? undefined;
 
-    const where: any = { organizationId };
+    const where: any = { organizationId, usercreator: session.user.id };
     if (memberId) where.memberId = memberId;
     if (startDate || endDate) {
       where.createdAt = {};

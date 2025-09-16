@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const memberId = url.searchParams.get('memberId') ?? undefined;
 
-    const where: any = { organizationId };
+    const where: any = { organizationId, usercreator: session.user.id };
     if (memberId) where.memberId = memberId;
 
     const list = await prisma.treatment.findMany({

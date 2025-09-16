@@ -1,115 +1,60 @@
-// app/api/hospital/pharmacyRequests/[id]/receipt/route.ts
-import { NextResponse } from 'next/server';
+// app/api/hospital/treatments/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { generateTreatmentReceiptPDF } from '@/lib/receipt';
 import { saveBufferToStorage } from '@/lib/storage';
 
-function makeFilename(requestId: string) {
-  const now = new Date().toISOString().replace(/[:.]/g, '-');
-  return `receipt-${requestId}-${now}.pdf`;
-}
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const organizationId = (session as any).user?.organizationId;
+  const userId = (session as any).user?.id ?? (session as any).userId;
+  if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
 
-  const orgId = (session as any).user?.organizationId;
-  const userId = (session as any).user?.id;
-  if (!orgId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
-
-  const requestId = params.id;
-
-  // load request with member + items + approver user info
-  const full = await prisma.pharmacyRequest.findUnique({
-    where: { id: requestId },
-    include: {
-      member: true,
-      user: { select: { id: true, name: true } }, // request creator
-      pharmacyRequests: { include: { user: { select: { id: true, name: true } } } }, // item approver
-    },
-  });
-
-  if (!full || full.organizationId !== orgId) {
-    return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 });
-  }
-
-  // only include approved items in the receipt
-  const approvedItems = (full.pharmacyRequests || []).filter((i: any) => i.status === 'Approved');
-  if (approvedItems.length === 0) {
-    return NextResponse.json({ error: 'No approved items to include in receipt' }, { status: 400 });
-  }
-
-  // Build PDF using pdf-lib
-  const pdfDoc = await PDFDocument.create();
-  let page = pdfDoc.addPage([595, 842]); // A4-ish
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const titleSize = 16;
-  const textSize = 10;
-
-  let y = 800;
-  page.drawText('Pharmacy Receipt', { x: 40, y, size: titleSize, font: helvetica });
-  y -= 28;
-  page.drawText(`Request: ${full.id}`, { x: 40, y, size: textSize, font: helvetica });
-  page.drawText(`Member: ${full.member?.name ?? full.memberId}`, { x: 320, y, size: textSize, font: helvetica });
-  y -= 16;
-  page.drawText(`Created by: ${full.user?.name ?? full.usercreator}`, { x: 40, y, size: textSize, font: helvetica });
-  page.drawText(`Date: ${new Date(full.createdAt).toLocaleString()}`, { x: 320, y, size: textSize, font: helvetica });
-
-  y -= 26;
-  // Table header
-  page.drawText('Medicine', { x: 40, y, size: textSize, font: helvetica });
-  page.drawText('Qty', { x: 320, y, size: textSize, font: helvetica });
-  page.drawText('Unit', { x: 370, y, size: textSize, font: helvetica });
-  page.drawText('Amount', { x: 450, y, size: textSize, font: helvetica });
-  y -= 14;
-
-  let total = 0;
-  for (const it of approvedItems) {
-    // compute amount
-    const qty = Number(it.quantity ?? 0);
-    const unit = Number(it.unitPrice ?? 0);
-    const amount = qty * unit;
-
-    // draw row
-    page.drawText(String(it.mdecineName ?? ''), { x: 40, y, size: textSize, font: helvetica });
-    page.drawText(String(qty), { x: 320, y, size: textSize, font: helvetica });
-    page.drawText(unit.toFixed(2), { x: 370, y, size: textSize, font: helvetica });
-    page.drawText(amount.toFixed(2), { x: 450, y, size: textSize, font: helvetica });
-
-    // small approver line
-    if (it.user?.name) {
-      page.drawText(`approved by: ${it.user.name}`, { x: 40, y: y - 12, size: 8, font: helvetica });
+  try {
+    // verify treatment belongs to org and grab member for coverage
+    const existingpharmacyRequest = await prisma.pharmacyRequest.findFirst({
+      where: { id: params.id },
+      include: { member: true },
+    });
+    if (!existingpharmacyRequest || existingpharmacyRequest.organizationId !== organizationId) {
+      return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 });
     }
+    const member = existingpharmacyRequest.member!;
+    const coverage = member.coveragePercent ?? 0;
 
-    total += amount;
-    y -= 30;
+    // Recalculate totals from DB
+    const finalItems = await prisma.pharmacyRequestItem.findMany({ where: { pharmacyRequestId: params.id, userAproverId: userId } });
+    const cents = finalItems.reduce((s, it) => s + Math.round(Number(it.unitPrice) * 100) * Math.max(1, it.quantity), 0);
+    const totalAmount = cents / 100;
+    const insurerShare = Math.round(cents * (coverage / 100)) / 100;
+    const memberShare = Math.round((cents - Math.round(cents * (coverage / 100)))) / 100;
 
-    // pagination: start a new page when near bottom
-    if (y < 120) {
-      page = pdfDoc.addPage([595, 842]);
-      y = 800;
-    }
+    const updated = await prisma.pharmacyRequest.findFirst({
+      where: { id: params.id, pharmacyRequests: { some: { userAproverId: userId } } },
+      include: { pharmacyRequests: { where: { userAproverId: userId } }, member: true, user: { select: { id: true, name: true, email: true } }, organization: true },
+    });
+      const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
+      const creatorName = (session as any).user?.name ?? (session as any).user?.email ?? 'System';
+      const pdfBytes = await generateTreatmentReceiptPDF({
+        organization: { name: org?.name ?? 'Nadra Insurance' },
+        member: { id: member.id, memberCode: member.memberCode, name: member.name, coveragePercent: member.coveragePercent },
+        items: finalItems.map(fi => ({ treatmentName: fi.mdecineName, quantity: fi.quantity, unitPrice: Number(fi.unitPrice) })),
+        totals: { totalAmount, insurerShare, memberShare },
+        createdAt: new Date(),
+        createdBy: creatorName,
+        treatmentId: updated?.code ?? 'N/A',
+      });
+      const filename = `Medicine-${session?.user?.name}-${params.id}-${Date.now()}.pdf`;
+      const { url } = await saveBufferToStorage(filename, pdfBytes);
+
+      await prisma.pharmacyRequestReceipt.create({ data: { url, userId, pharmacyRequestId: params.id, organizationId } });
+
+    return NextResponse.json({ ok: true, medicine: updated }, { status: 200 });
+  } catch (e: any) {
+    console.error('CREATE MEDICINE RECEIPT ERROR', e);
+    return NextResponse.json({ error: e?.message || 'Server error' }, { status: 500 });
   }
-
-  page.drawText(`Total: ${total.toFixed(2)}`, { x: 40, y: y - 8, size: textSize, font: helvetica });
-
-  // save PDF bytes
-  const pdfBytes = await pdfDoc.save(); // Uint8Array
-
-  // persist to storage using your helper
-  const filename = makeFilename(requestId);
-  const { filepath, url } = await saveBufferToStorage(filename, pdfBytes);
-
-  // create DB row pointing to printable url (url is e.g. /api/files/<filename>)
-  const created = await prisma.pharmacyRequestReceipt.create({
-    data: {
-      organizationId: orgId,
-      userId,
-      pharmacyRequestId: requestId,
-      url,
-    },
-  });
-
-  return NextResponse.json({ ok: true, receipt: created, receiptUrl: url }, { status: 201 });
 }
