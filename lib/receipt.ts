@@ -91,7 +91,7 @@ function drawHeader(page: PDFPage, font: PDFFont, fontBold: PDFFont, org: Receip
   })
 
   if (pageNumber !== undefined) {
-    page.drawText(`Page ${pageNumber}`, {
+    page.drawText(`Page ${pageNumber} FBU`, {
       x: rightX - 60,
       y: MARGIN / 2,
       size: 9,
@@ -140,7 +140,7 @@ function drawTableHeader(page: PDFPage, font: PDFFont, fontBold: PDFFont, y: num
   const unitX = PAGE_WIDTH - MARGIN - 110
   const amountX = PAGE_WIDTH - MARGIN - 10
 
-  page.drawText('Service / Treatment', { x: nameX, y, size: 9, font: fontBold })
+  page.drawText('Service / Treatment / Medication', { x: nameX, y, size: 9, font: fontBold })
   page.drawText('Qty', { x: qtyX, y, size: 9, font: fontBold })
   page.drawText('Unit Price', { x: unitX, y, size: 9, font: fontBold })
   page.drawText('Amount', { x: amountX - 40, y, size: 9, font: fontBold })
@@ -252,7 +252,7 @@ export async function generateTreatmentReceiptPDF(params: {
   drawTotals(page, font, fontBold, totals, y)
 
   // footer note (on last page)
-  const footerText = 'Thank you. Keep this receipt for your records.'
+  const footerText = 'Thank you for trusting us. Keep this receipt for your records.'
   pdfDoc.getPages().at(-1)?.drawText(footerText, {
     x: MARGIN,
     y: MARGIN + 10,

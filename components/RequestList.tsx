@@ -2,8 +2,9 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
-export default function RequestList({ requests, onSelect }: { requests: any[]; onSelect: (r:any)=>void }) {
+export default function RequestList({ requests, onSelect,  }: { requests: any[]; onSelect: (r:any)=>void }) {
   return (
     <div className="space-y-3">
       {requests.map(r => (
@@ -15,7 +16,12 @@ export default function RequestList({ requests, onSelect }: { requests: any[]; o
             </div>
             <div className="flex items-center gap-2">
               <div className="text-sm text-gray-600">{(r.pharmacyRequests || []).length} items</div>
-              <Button variant="ghost" onClick={()=>onSelect(r)}>Open</Button>
+              {r.pharmacyRequestReceipts && r.pharmacyRequestReceipts.length > 0 && (
+                <Link href={r.pharmacyRequestReceipts[0].url} target="_blank" rel="noopener noreferrer" className="inline-block transition-transform duration-300 transform hover:scale-110">
+                  <Button variant="ghost" className='pt-2'>Receipt</Button>
+                </Link>
+              )}
+              <Button variant="ghost" className='pt-2' onClick={()=>onSelect(r)}>Open</Button>
             </div>
           </CardContent>
         </Card>

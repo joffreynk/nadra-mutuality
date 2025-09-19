@@ -10,6 +10,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const organizationId = (session as any).user?.organizationId;
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
 
+  const itemFilter: any = { OR: [{ status: 'Pending' }, { userAproverId: session.user.id }] };
+
   try {
     const pr = await prisma.pharmacyRequest.findFirst({
       where: { id: params.id, organizationId },
@@ -17,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         include: {
           user: { select: { id: true, name: true, role:true } }
         },
-        where: { status: 'Pending' }
+        where: itemFilter
       }, pharmacyRequestReceipts: true, member: true, user: { select: { id: true, name: true } } },
     });
     if (!pr) return NextResponse.json({ error: 'Not found' }, { status: 404 });

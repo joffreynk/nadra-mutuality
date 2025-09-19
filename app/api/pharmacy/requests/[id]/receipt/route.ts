@@ -50,9 +50,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const filename = `Medicine-${session?.user?.name}-${params.id}-${Date.now()}.pdf`;
       const { url } = await saveBufferToStorage(filename, pdfBytes);
 
-      await prisma.pharmacyRequestReceipt.create({ data: { url, userId, pharmacyRequestId: params.id, organizationId } });
+      const existingReceipt = await prisma.pharmacyRequestReceipt.findFirst({ where: { pharmacyRequestId: params.id, userId } });
+      if (existingReceipt) {
+        await prisma.pharmacyRequestReceipt.update({ where: { id: existingReceipt.id }, data: { url } });
+      } else {
+        await prisma.pharmacyRequestReceipt.create({ data: { url, userId, pharmacyRequestId: params.id, organizationId } });
+      }
 
-    return NextResponse.json({ ok: true, medicine: updated }, { status: 200 });
+    return NextResponse.json({ ok: true, url }, { status: 200 });
   } catch (e: any) {
     console.error('CREATE MEDICINE RECEIPT ERROR', e);
     return NextResponse.json({ error: e?.message || 'Server error' }, { status: 500 });

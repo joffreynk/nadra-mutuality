@@ -11,40 +11,34 @@ export async function GET(req: Request) {
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
 
   try {
-    // optional query filters 
     const url = new URL(req.url);
     const startDate = url.searchParams.get('startDate') ?? undefined;
     const endDate = url.searchParams.get('endDate') ?? undefined;
 
-    const createdOrRelatedOrPending = {
-      OR: [
-        { usercreator: userId }, // requests user created
-        { pharmacyRequests: { some: { userAproverId: userId } } }, // where user approved some item
-        { pharmacyRequests: { some: { status: 'Pending' } } }, // requests that have pending items
-      ],
+    // Item-level filter: items we care about (pending OR approved by this user)
+    const itemFilter: any = { OR: [{ status: 'Pending' }] };
+
+    // Top-level WHERE: organization + ensure at least one child matches itemFilter
+    const where: any = {
+      organizationId,
+      pharmacyRequests: { some: itemFilter }, // <- ensures children are not empty
     };
 
-    const where: any = { organizationId, ...createdOrRelatedOrPending };
-
+    // apply date range if present
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = new Date(startDate + 'T00:00:00Z');
-      if (endDate) where.createdAt.lte = new Date(endDate + 'T23:59:59Z');
+      if (endDate) where.createdAt.lte = new Date(endDate + 'T23:59:59Z');``
     }
 
-    // Include only items that are Pending or Approved
     const list = await prisma.pharmacyRequest.findMany({
-      where: {
-        organizationId,
-        pharmacyRequests: {
-          some: { status: { in: ['Pending'] } }, // filter parent requests
-        },
-      },
+      where,
       include: {
         member: { select: { id: true, name: true, memberCode: true } },
         user: { select: { id: true, name: true, role: true } },
+        // include only matching child items (so the array will be non-empty)
         pharmacyRequests: {
-          where: { status: { in: ['Pending'] } }, // filter child requests
+          where: itemFilter,
           orderBy: { createdAt: 'asc' },
           include: {
             user: { select: { id: true, name: true, role: true } },

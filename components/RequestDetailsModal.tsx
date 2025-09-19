@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import RequestEditModal from './RequestEditModal'; // relative path
 import { Input } from '@/components/ui/input';
+import { isWithinExactHours, printReceipt } from '@/lib/helper';
+import Link from 'next/link';
 
 export default function RequestDetailsModal({ requestId, onClose, onChanged, currentUserId }: {
   requestId: string;
@@ -15,6 +17,8 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
   const [loading, setLoading] = useState(false);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [isCreateReceipt, setIsCreateReceipt] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState('');
 
   // Map of itemId -> unitPrice (local input state)
   const [unitPrices, setUnitPrices] = useState<Record<string, number>>({});
@@ -28,6 +32,9 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
       const res = await fetch(`/api/hospital/pharmacyRequests/${requestId}`);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
+      setIsCreateReceipt(data.pharmacyRequests?.some((it: any) => it.status === 'Approved' && it.userAproverId === currentUserId));
+      setReceiptUrl(data.pharmacyRequestReceipts?.length > 0 ? data.pharmacyRequestReceipts.find((it: any) => it.userId === currentUserId).url : '');
+
       setRequest(data);
 
       // initialize unit price map from server values (use numeric 0 if null)
@@ -92,6 +99,15 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
             <div className="text-sm text-gray-600">Member: {request.member?.name ?? request.memberId}</div>
             <div className="text-xs text-gray-500">Created by: {request.user?.name ?? request.usercreator} • {new Date(request.createdAt).toLocaleString()}</div>
           </div>
+          <div className="ml-4 text-right">
+            {receiptUrl && (
+              <Link href={receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-block transition-transform duration-300 transform hover:scale-110">
+                <button className="bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                  View Receipt
+                </button>
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="p-4 space-y-3">
@@ -139,8 +155,8 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
                           Approve
                         </Button>
                       )}
-                      {canRevert && (
-                        <Button variant="ghost" disabled={!!busyItemId} onClick={() => postAction(it.id, { action: 'Reverted' })}>
+                      {canRevert && isWithinExactHours(request.createdAt) && (
+                        <Button variant="ghost" disabled={!!busyItemId} onClick={() => postAction(it.id, { action: 'Pending' })}>
                           Revert
                         </Button>
                       )}                      
@@ -154,7 +170,8 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
 
         <div className='text-center'>
           <div className="flex items-center gap-2 mb-2 justify-center">
-            {isCreator && <Button onClick={() => setEditing(true)}>Edit list</Button>}
+            {isCreateReceipt && <Button className='' onClick={async () => await printReceipt(request.id)}>print Receipt</Button>}
+            {isCreator && isWithinExactHours(request.createdAt) && <Button onClick={() => setEditing(true)}>Edit list</Button>}
             <Button variant="ghost" onClick={() => { onClose(); }}>Close</Button>
           </div>
         </div>

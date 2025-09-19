@@ -13,15 +13,16 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const memberId = url.searchParams.get('memberId') ?? undefined;
 
-    const where: any = { organizationId,  pharmacyRequests: {where: {userAproverId: session.user.id}},  };
+    const where: any = { organizationId,  pharmacyRequests: {some: {userAproverId: session.user.id}},  };
     if (memberId) where.memberId = memberId;
 
     const list = await prisma.pharmacyRequest.findMany({
       where, 
       include: {
-        pharmacyRequests: {where: {userAproverId: session.user.id}}, 
-        member: {select: { id: true, name: true, memberCode: true }},
+        pharmacyRequests: {where: {userAproverId: session.user.id}, include: {user: {select: {id: true, name: true}}}},
+        member: {select: { id: true, name: true, memberCode: true, coveragePercent: true }},
         user: {select: { id: true, name: true, email: true }},
+        pharmacyRequestReceipts: {where: {userId: session.user.id}, select: { id: true, url: true }},
       },
       orderBy: { createdAt: 'desc' },
       take: 200,

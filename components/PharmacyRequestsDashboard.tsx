@@ -68,7 +68,7 @@ export default function PharmacyRequestsDashboard(){
           <RequestList requests={requests} onSelect={(r)=>setSelected(r)} />
         </div>
         <div>
-          <RequestDetail request={selected} onAction={onAction} session={session} />
+          {selected && <RequestDetail request={selected} onAction={onAction} onSelect={(r)=>setSelected(r)} session={session} />}
         </div>
       </div>
     </div>
