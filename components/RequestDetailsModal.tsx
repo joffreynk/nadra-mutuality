@@ -33,7 +33,7 @@ export default function RequestDetailsModal({ requestId, onClose, onChanged, cur
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setIsCreateReceipt(data.pharmacyRequests?.some((it: any) => it.status === 'Approved' && it.userAproverId === currentUserId));
-      setReceiptUrl(data.pharmacyRequestReceipts?.length > 0 ? data.pharmacyRequestReceipts.find((it: any) => it.userId === currentUserId).url : '');
+      setReceiptUrl(data.pharmacyRequestReceipts?.length > 0 ? data.pharmacyRequestReceipts.find((it: any) => it.userId === currentUserId)?.url : '');
 
       setRequest(data);
 
