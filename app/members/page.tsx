@@ -6,7 +6,6 @@ export const runtime = 'nodejs';
 
 export default async function MembersPage() {
   const session = await auth();
-  
   if (!session || (session.user?.role !== 'WORKER' && session.user?.role !== 'HEALTH_OWNER')) {
     redirect('/');
   }

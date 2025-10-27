@@ -37,7 +37,6 @@ export async function POST(req: Request) {
   if (data.isDependent && !data.familyRelationship) {
     return NextResponse.json({ error: 'Relationship is required for dependent members' }, { status: 400 });
   }
-  console.log(organizationId);
 
   const member = await prisma.member.create({
     data: {

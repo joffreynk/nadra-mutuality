@@ -1,243 +1,273 @@
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { redirect } from "next/navigation";
-import { z } from 'zod'
-import { revalidatePath } from 'next/cache'
-import Link from 'next/link';
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { z } from "zod";
 
 const validationSchema = z.object({
-  memberCode: z.string().min(5, 'Member code is required'),
-  name: z.string().min(2, 'Name is required'),
+  memberCode: z.string().min(1).optional(),
+  name: z.string().min(2, "Name is required"),
   dob: z.string().optional().nullable(),
   gender: z.string().optional(),
-  email: z.string().email('Invalid email').optional().or(z.literal('')).nullable(),
+  email: z.string().email("Invalid email").optional().or(z.literal("")).nullable(),
   contact: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   idNumber: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
   companyId: z.string().optional().nullable(),
-  categoryID: z.string().min(1, 'Category is required'),
+  categoryID: z.string().min(1, "Category is required"),
   passportPhotoUrl: z.string().optional().nullable(),
-})
+});
 
-async function updateMember(memberId: string, formData: FormData, member: any) {
-  try {
-    // Handle file upload if present
-    let passportPhotoUrl = null
-    const passportPhoto = formData.get('passportPhoto') as File
-    if (passportPhoto.size > 0) {
-      const fd = new FormData()
-      fd.append('file', passportPhoto)
-      const up = await fetch('/api/uploads', { method: 'POST', body: fd })
-      if (!up.ok) throw new Error('Passport photo upload failed')
-      const upj = await up.json()
-      passportPhotoUrl = upj.url
+type Category = { id: string; name: string; coveragePercent?: number };
+type Company = { id: string; name: string };
+
+export default function EditMemberClient() {
+  const router = useRouter();
+  const [member, setMember] = useState<any | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formState, setFormState] = useState<any>({});
+
+  const params = useParams();
+   
+  const memberId = params?.id as string;
+
+  useEffect(() => {
+    if (!memberId) return;
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const [mRes, cRes, compRes] = await Promise.all([
+          fetch(`/api/members/${memberId}`, { credentials: "include" }),
+          fetch(`/api/admin/categories?memberFor=${memberId}`, { credentials: "include" }),
+          fetch(`/api/admin/companies?memberFor=${memberId}`, { credentials: "include" }),
+        ]);
+
+        if (!mRes.ok) throw new Error("Failed to load member");
+        const mJson = await mRes.json();
+
+        const catJson = cRes.ok ? await cRes.json() : [];
+        const compJson = compRes.ok ? await compRes.json() : [];
+
+        if (!mounted) return;
+        
+        setMember(mJson);
+        setCategories(Array.isArray(catJson) ? catJson : []);
+        setCompanies(Array.isArray(compJson) ? compJson : []);
+
+        // initialize form state with member values
+        setFormState({
+          name: mJson.name ?? "",
+          gender: mJson.gender ?? "Male",
+          email: mJson.email ?? "",
+          contact: mJson.contact ?? "",
+          address: mJson.address ?? "",
+          idNumber: mJson.idNumber ?? "",
+          country: mJson.country ?? "",
+          companyId: mJson.companyId ?? "",
+          categoryID: mJson.categoryID ?? "",
+          dob: mJson.dob ? new Date(mJson.dob).toISOString().slice(0, 10) : "",
+        });
+      } catch (err: any) {
+        console.error(err);
+        setError(err?.message || "Failed to load data");
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
-    const payload = {
-      memberCode: formData.get('memberCode') as string || member.memberCode,
-      name: formData.get('name') as string || member.name,
-      dob: formData.get('dob') as string || `${new Date(member.dob.toString()).getFullYear()}-${new Date(member.dob.toString()).getMonth() + 1}-${new Date(member.dob.toString()).getDate()}`,
-      gender: formData.get('gender') as string || member.gender,
-      email: formData.get('email') as string || member.email,
-      contact: formData.get('contact') as string || member.contact,
-      address: formData.get('address') as string || member.address,
-      idNumber: formData.get('idNumber') as string || member.idNumber,
-      country: formData.get('country') as string || member.country,
-      companyId: formData.get('companyId') as string || member.companyId,
-      categoryID: formData.get('categoryID') as string || member.categoryID,
-      coveragePercent: Number(formData.get('coveragePercent')) || member.coveragePercent,
-      passportPhotoUrl: passportPhotoUrl || member.passportPhotoUrl,
-    }
-    
-    const validated = validationSchema.parse(payload)
-    const res = await fetch(`${process.env.NEXTAUTH_URL}/api/members/${memberId}`, {
-      method: 'PUT',
-      credentials: 'include',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(validated)
-    })
-    
-    if (!res.ok) {
-      console.log('GETTING DATA READY', res);
-      const error = await res.json()
-      throw new Error(error.message)
-    } 
-    revalidatePath('/members');
-    return { success: true }
+    load();
 
-  } catch (error: any) {
-    return { error: error.message }
+    return () => {
+      mounted = false;
+    };
+  }, [memberId]);
+
+  if (!memberId) return <div>Member ID is required</div>;
+  if (loading) return <div>Loading...</div>;
+  if (!member) return <div>Member not found</div>;
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+
+    try {
+      // Build payload from formState and file input
+      const form = new FormData(e.currentTarget);
+
+      // Handle passport photo upload first (if any)
+      const passportFile = form.get("passportPhoto") as File | null;
+      let passportPhotoUrl = member.passportPhotoUrl ?? null;
+      if (passportFile && passportFile.size > 0) {
+        const fd = new FormData();
+        fd.append("file", passportFile);
+        const up = await fetch("/api/uploads", { method: "POST", body: fd, credentials: "include" });
+        if (!up.ok) {
+          const text = await up.text();
+          throw new Error(`Upload failed: ${text}`);
+        }
+        const upj = await up.json();
+        passportPhotoUrl = upj.url;
+      }
+
+      // Merge values (form entries fallback to existing member fields)
+      const payload = {
+        ...member,
+        name: (form.get("name") as string) || member.name,
+        dob: (form.get("dob") as string) || (member.dob ? new Date(member.dob).toISOString().slice(0, 10) : null),
+        gender: (form.get("gender") as string) || member.gender,
+        email: (form.get("email") as string) || member.email,
+        contact: (form.get("contact") as string) || member.contact,
+        address: (form.get("address") as string) || member.address,
+        idNumber: (form.get("idNumber") as string) || member.idNumber,
+        country: (form.get("country") as string) || member.country,
+        companyId: (form.get("companyId") as string) || member.companyId,
+        categoryID: (form.get("categoryID") as string) || member.categoryID,
+        passportPhotoUrl,
+      };
+
+      // Client-side validation using zod
+      validationSchema.parse(payload);
+
+      // Send update to server
+      const res = await fetch(`/api/members/${memberId}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.message || `Update failed (status ${res.status}: ${j.error})`);
+      }
+
+      // Optionally revalidate on server via API or rely on Next's caching strategies
+      router.push("/members");
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
   }
-}
 
-export default async function EditMemberPage({ params }: { params: any }) {
-    const session = await auth();
-    if (!session) return <div>Unauthorized</div>
-    const organizationId = session.user.organizationId;
-    if (!organizationId) return <div>No organization</div>;
-    const myparams = await params;
-
-    if (!myparams?.id) return <div>Member ID is required</div>
-
-  const member = await prisma.member.findUnique({
-    where: { id: myparams?.id },
-  });
-
-  if (!member) redirect('/members');
-  const categories = await prisma.category.findMany({
-    where: { organizationId },
-  });
-
-  const companies = await prisma.company.findMany({
-    where: { organizationId },
-  });
-
-  async function handleSubmit(formData: FormData) {
-    'use server'
-    if (!member?.id) redirect('/members');
-    const result = await updateMember(member.id, formData, member);
-    
-    if (result.error) {
-      // Show error message
-      return;
-    }
-
-    redirect('/members');
+  function onChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    setFormState((s: any) => ({ ...s, [name]: value }));
   }
-
 
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-semibold mb-4">Edit Existing Member</h1>
-      
-      <form action={handleSubmit} className="space-y-4">
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">{error}</div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium">Name</label>
-          <input 
+          <input
             name="name"
-            defaultValue={member?.name}
-            className="mt-1 w-full border rounded p-2" 
+            value={formState.name}
+            onChange={onChange}
+            className="mt-1 w-full border rounded p-2"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Gender</label>
-            <select 
-              name="gender"
-              defaultValue={member.gender ?? 'Male'} 
-              className="mt-1 w-full border rounded p-2"
-            >
+            <select name="gender" value={formState.gender} onChange={onChange} className="mt-1 w-full border rounded p-2">
               <option value="Male">Male</option>
               <option value="Female">Female</option>
               <option value="Other">Other</option>
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium">Email</label>
-            <input 
-              type="email"
-              name="email" 
-              defaultValue={member.email ?? ''} 
-              className="mt-1 w-full border rounded p-2"
-            />
+            <input type="email" name="email" value={formState.email} onChange={onChange} className="mt-1 w-full border rounded p-2" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium">Category</label>
-            <select 
-              name="category"
-              defaultValue={categories.find(c=>c.id === member.categoryID)?.id ?? ''} 
-              className="mt-1 w-full border rounded p-2"
-            > {categories.map((c:any) => (
-                <option key={c.id} value={c.id}>{c.name}   -    {c.coveragePercent}%</option>
-              ))}
-            </select>
+
+        {!member.isDependent && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium">Category</label>
+              <select name="categoryID" value={formState.categoryID} onChange={onChange} className="mt-1 w-full border rounded p-2">
+                <option value="">Select...</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.coveragePercent ? `- ${c.coveragePercent}%` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Contact</label>
-            <input 
-              name="contact"
-              defaultValue={member.contact ?? ''}
-              className="mt-1 w-full border rounded p-2" 
-            />
+            <input name="contact" value={formState.contact} onChange={onChange} className="mt-1 w-full border rounded p-2" />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium">ID Number</label>
-            <input 
-              name="idNumber"
-              defaultValue={member.idNumber ?? ''}
-              className="mt-1 w-full border rounded p-2" 
-            />
+            <input name="idNumber" value={formState.idNumber} onChange={onChange} className="mt-1 w-full border rounded p-2" />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Country</label>
-            <input 
-              name="country"
-              defaultValue={member.country ?? ''}
-              className="mt-1 w-full border rounded p-2" 
-            />
+            <input name="country" value={formState.country} onChange={onChange} className="mt-1 w-full border rounded p-2" />
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium">Company</label>
-            <select 
-              name="companyId"
-              defaultValue={member.companyId ?? ''}
-              className="mt-1 w-full border rounded p-2"
-            >
-              <option value="">Select...</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
+
+          {!member.isDependent && (
+            <div>
+              <label className="block text-sm font-medium">Company</label>
+              <select name="companyId" value={formState.companyId} onChange={onChange} className="mt-1 w-full border rounded p-2">
+                <option value="">Select...</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Passport Photo</label>
-            <input 
-              type="file"
-              name="passportPhoto"
-              accept="image/*" 
-              className="mt-1 w-full border rounded p-2" 
-            />
+            <input type="file" name="passportPhoto" accept="image/*" className="mt-1 w-full border rounded p-2" />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium">Address</label>
-            <input 
-              name="address"
-              defaultValue={member.address ?? ''}
-              className="mt-1 w-full border rounded p-2" 
-            />
+            <input name="address" value={formState.address} onChange={onChange} className="mt-1 w-full border rounded p-2" />
           </div>
         </div>
 
         <div className="flex gap-2 justify-end mt-4">
-         <Link className="px-4 py-2 bg-brand text-white rounded" href="/members"> Back </Link>
-          <button 
-            type="submit"
-            className="px-4 py-2 bg-brand text-white rounded"
-          >
-            Save
+          <Link className="px-4 py-2 bg-brand text-white rounded" href="/members"> Back </Link>
+          <button type="submit" disabled={saving} className="px-4 py-2 bg-brand text-white rounded">
+            {saving ? "Saving..." : "Save"}
           </button>
         </div>
       </form>
     </div>
   );
-
 }

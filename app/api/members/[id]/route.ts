@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 const updateSchema = z.object({
   name: z.string().min(2),
-  dob: z.string().optional(),
+  dob: z.date().optional(),
   gender: z.string().optional(),
   email: z.string().email().optional(),
   contact: z.string().optional(),
@@ -15,7 +15,7 @@ const updateSchema = z.object({
   companyName: z.string().optional(),
   categoryID: z.string().min(4, 'Category ID is required'),
   passportPhotoId: z.string().optional(),
-  passportPhotoUrl: z.string().url().optional(),
+  passportPhotoUrl: z.string().min(3).optional(),
   dependentProofUrl: z.string().optional().nullable(), // Add this line
   isDependent: z.boolean().optional(), // Add this line
   relationship: z.string().optional(), // Add this line
@@ -24,10 +24,20 @@ const updateSchema = z.object({
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
+
+  
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const organizationId = session.user.organizationId;
   if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
   const json = await req.json();
+  delete json.createdAt;
+  delete json.updatedAt;
+  delete json.organizationId;
+  delete json.memberCode;
+  delete json.id;
+
+  json.dob = new Date(json.dob);
+
 
   const parsed = updateSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
@@ -39,15 +49,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Relationship is required for dependent members' }, { status: 400 });
     }
   }
-  console.log('==========================');
-  
-  console.log(parsed);
   
   const before = await prisma.member.findFirst({ where: { id: params.id, organizationId } });
   if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (!before.isDependent){
     const updated = await prisma.member.update({ where: { id: params.id }, data: { ...parsed.data } });
-    await prisma.member.updateMany({ where: { organizationId, memberCode: {startsWith: updated.memberCode.concat('/') } }, data: { categoryID: updated.categoryID } });
+    await prisma.member.updateMany({ where: { organizationId, memberCode: {startsWith: updated.memberCode.concat('/') } }, data: { categoryID: updated.categoryID, companyId: updated.companyId } });
     await prisma.auditLog.create({ data: { organizationId, userId: session.user.id, action: 'member_update', entityType: 'Member', entityId: updated.id, before, after: updated } });
     return NextResponse.json(updated);
   } else {
@@ -60,6 +67,16 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
   }
   
+}
+
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const organizationId = session.user.organizationId;
+  if (!organizationId) return NextResponse.json({ error: 'No organization' }, { status: 400 });
+  const member = await prisma.member.findFirst({ where: { id: params.id, organizationId } });
+  if (!member) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json(member);
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
