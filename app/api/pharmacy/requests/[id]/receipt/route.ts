@@ -17,13 +17,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // verify treatment belongs to org and grab member for coverage
     const existingpharmacyRequest = await prisma.pharmacyRequest.findFirst({
       where: { id: params.id },
-      include: { member: true },
+      include: { member: { include: { category: { select: { name: true, coveragePercent: true } } } } },
     });
     if (!existingpharmacyRequest || existingpharmacyRequest.organizationId !== organizationId) {
       return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 });
     }
     const member = existingpharmacyRequest.member!;
-    const coverage = member.coveragePercent ?? 0;
+    const coverage = member.category.coveragePercent ?? 0;
 
     // Recalculate totals from DB
     const finalItems = await prisma.pharmacyRequestItem.findMany({ where: { pharmacyRequestId: params.id, userAproverId: userId } });
@@ -34,13 +34,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const updated = await prisma.pharmacyRequest.findFirst({
       where: { id: params.id, pharmacyRequests: { some: { userAproverId: userId } } },
-      include: { pharmacyRequests: { where: { userAproverId: userId } }, member: true, user: { select: { id: true, name: true, email: true } }, organization: true },
+      include: { pharmacyRequests: { where: { userAproverId: userId } }, member: { include: { category: { select: { name: true, coveragePercent: true } } } }, user: { select: { id: true, name: true, email: true } }, organization: true },
     });
       const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
       const creatorName = (session as any).user?.name ?? (session as any).user?.email ?? 'System';
       const pdfBytes = await generateTreatmentReceiptPDF({
         organization: { name: org?.name ?? 'Nadra Insurance' },
-        member: { id: member.id, memberCode: member.memberCode, name: member.name, coveragePercent: member.coveragePercent },
+        member: { id: member.id, memberCode: member.memberCode, name: member.name, coveragePercent: member.category.coveragePercent ?? 0 },
         items: finalItems.map(fi => ({ treatmentName: fi.mdecineName, quantity: fi.quantity, unitPrice: Number(fi.unitPrice) })),
         totals: { totalAmount, insurerShare, memberShare },
         createdAt: new Date(),

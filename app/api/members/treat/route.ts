@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const members = await prisma.member.findMany({ 
     where,
     take: 3,
-    select: {id: true, name: true, memberCode: true, coveragePercent: true}
+    select: {id: true, name: true, memberCode: true, category: { select: { name: true, coveragePercent: true } }}
   });  
   if (!members) return NextResponse.json({ error: 'No members found' }, { status: 404 });
   return NextResponse.json(members);

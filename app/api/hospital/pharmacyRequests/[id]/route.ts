@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           user: { select: { id: true, name: true, role:true } }
         },
         where: itemFilter
-      }, pharmacyRequestReceipts: true, member: true, user: { select: { id: true, name: true } } },
+      }, pharmacyRequestReceipts: true, member: { include: { category: { select: { name: true, coveragePercent: true } } } }, user: { select: { id: true, name: true } } },
     });
     if (!pr) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json(pr);
@@ -79,7 +79,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }
     });
 
-    const updated = await prisma.pharmacyRequest.findFirst({ where: { id: params.id }, include: { pharmacyRequests: true, pharmacyRequestReceipts: true, member: true } });
+    const updated = await prisma.pharmacyRequest.findFirst({ where: { id: params.id }, include: { pharmacyRequests: true, pharmacyRequestReceipts: true, member: { include: { category: { select: { name: true, coveragePercent: true } } } } } });
     return NextResponse.json({ ok: true, pharmacyRequest: updated });
   } catch (err: any) {
     console.error('PUT /api/hospital/pharmacyRequests/[id] error', err);

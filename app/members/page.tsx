@@ -14,7 +14,10 @@ export default async function MembersPage() {
   const organizationId = session.user.organizationId;
   const members = await prisma.member.findMany({
     where: { organizationId },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    include: {
+      category: true, company: true
+    }
   });
 
   return (
@@ -63,9 +66,9 @@ export default async function MembersPage() {
                   <tr key={m.id} className="border-b last:border-0">
                     <td className="py-2 pr-4">{m.name}</td>
                     <td className="py-2 pr-4">{m.memberCode}</td>
-                    <td className="py-2 pr-4">{m.companyName ?? '-'}</td>
-                    <td className="py-2 pr-4">{m.category}</td>
-                    <td className="py-2 pr-4">{m.coveragePercent}%</td>
+                    <td className="py-2 pr-4">{m.company?.name ?? '-'}</td>
+                    <td className="py-2 pr-4">{m.category?.name ?? '-'}</td>
+                    <td className="py-2 pr-4">{m.category?.coveragePercent ?? 0}%</td>
                     <td className="py-2 pr-4">{m.status}</td>
                     <td className="py-2 pr-4">
                       <Link href={`/members/${m.id}/edit`} className="text-brand underline mr-2">Edit</Link>

@@ -12,9 +12,9 @@ export async function GET(req: Request) {
   const q = searchParams.get('q') || undefined;
   const where: any = { organizationId };
   if (q) where.OR = [
-    { member: { name: { contains: q, } } },
-    { member: { memberCode: { contains: q, } } },
-    { code: { contains: q, } },
+    { member: { name: { contains: q } } },
+    { member: { memberCode: { contains: q } } },
+    { code: { contains: q } },
   ];
   const last = await prisma.treatment.findFirst({
       where,
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
       select: {
         id: true,
         code: true,
-        member: { select: { id: true, name: true, memberCode: true, coveragePercent: true } },
+        member: { select: { id: true, name: true, memberCode: true, category: { select: { name: true, coveragePercent: true } } } },
         user: { select: { id: true, name: true } },
       },
     });

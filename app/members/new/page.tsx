@@ -1,10 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { z } from 'zod';
+import { set, z } from 'zod';
 
 type Category = { id: string; name: string; coveragePercent: number, category: string};
-type SimpleMember = { id: string; name: string; memberCode: string, isDependent: boolean, coveragePercent: number, category: string, companyId: string };
+type SimpleMember = { id: string; name: string; memberCode: string, isDependent: boolean, categoryID: string, companyId: string };
 type Company = { id: string; name: string; };
 
 export default function NewMemberPage() {
@@ -50,8 +50,8 @@ export default function NewMemberPage() {
       const mres = await fetch(url);
       if (mres.ok) {
         const newmembers = await mres.json();
-        setParents(newmembers.map((m:any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })).filter((m:any) => !m.isDependent));
-        setDependents(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, category: m.category, coveragePercent: m.coveragePercent, companyId: m.companyId })).filter((m:any) => m.isDependent));
+        setParents(newmembers.map((m:any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, categoryID: m.categoryID,  companyId: m.companyId })).filter((m:any) => !m.isDependent));
+        setDependents(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, isDependent: m.isDependent, categoryID: m.categoryID, companyId: m.companyId })).filter((m:any) => m.isDependent));
         const newcode = `Nadra${String(parents.length + 1).padStart(4, "0")}`;
         setForm((prev: any) => ({ ...prev, memberCode: newcode }));
       }
@@ -65,7 +65,6 @@ export default function NewMemberPage() {
   }, 350);
   return () => clearTimeout(id);
   }, [parentMemberSearchQuery, companySearchQuery]);
-
 
 
 // Replace your second useEffect with this
@@ -82,9 +81,9 @@ useEffect(() => {
       ...prev,
       memberCode: newcode,
       isDependent: true,
-      category: parent?.category ?? prev.category,
-      coveragePercent: parent?.coveragePercent ?? prev.coveragePercent,
-      companyId: parent?.companyId ?? prev.companyId,
+      categoryID: parent ? parent.categoryID : '',
+      companyId: parent ? parent.companyId : '',
+
     }));
   } else {
     // non-dependent — recompute top-level code from parents count
@@ -124,6 +123,7 @@ useEffect(() => {
           if (!dp.ok) throw new Error('Dependent proof upload failed');
           const dpj = await dp.json();
           dependentProofUrl = dpj.url;
+         
         } else {
           throw new Error('Dependent proof is required for dependent members');
         }
@@ -142,8 +142,7 @@ useEffect(() => {
         idNumber: form.idNumber,
         country: form.country,
         companyId: form.companyId || null,
-        category: form.category,
-        coveragePercent: form.coveragePercent,
+        categoryID: form.categoryID,
         passportPhotoUrl: passportPhotoUrl,
         dependentProofUrl: dependentProofUrl || null,
         isDependent: isDependent,
@@ -163,8 +162,7 @@ useEffect(() => {
         idNumber: z.string().optional(),
         country: z.string().optional(),
         companyId: z.string().optional().nullable(),
-        category: z.string().min(1, 'Category is required'),
-        coveragePercent: z.coerce.number().min(20).max(100, 'Coverage percent must be between 20 and 100'),
+        categoryID: z.string().min(1, 'Category is required'),
         passportPhotoUrl: z.string().min(5, 'Passport photo is required'),
         dependentProofUrl: z.string().optional().nullable(),
         isDependent: z.boolean(),
@@ -202,11 +200,10 @@ useEffect(() => {
         email: '',
         contact: '',
         address: '',
+        categoryID: '',
         idNumber: '',
         country: '',
         companyId: '',
-        category: 'A',
-        coveragePercent: 100,
         isDependent: false,
         familyRelationship: '',
       });
@@ -290,26 +287,25 @@ useEffect(() => {
             <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Category</label>
-            <select className="mt-1 w-full border rounded p-2" value={form.category} onChange={(e) => {
-              const v = e.target.value; setForm({ ...form, category: v, coveragePercent: categories.find(c => c.name === v)?.coveragePercent ?? form.coveragePercent });
+            <select className="mt-1 w-full border rounded p-2" value={form.categoryID} onChange={(e) => {
+              const v = e.target.value; setForm({ ...form, categoryID: v });
             }}>
-              {categories.length === 0 && <option>A</option>}
               {categories.map(c => (
-                <option key={c.id} value={c.name}>{c.name}</option>
+                <option key={c.id} className='flex justify-between' value={c.id}>{c.name} - {c.coveragePercent}%</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium">Coverage %</label>
-            <input type="number" className="mt-1 w-full border rounded p-2" value={form.coveragePercent} onChange={(e) => setForm({ ...form, coveragePercent:  Number(e.target.value)})} />
+            <label className="block text-sm font-medium">Contact</label>
+            <input className="mt-1 w-full border rounded p-2" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />
           </div>
         </div>
           ) : null
         }
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium">Contact</label>
-            <input className="mt-1 w-full border rounded p-2" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />
+            <label className="block text-sm font-medium">Country</label>
+            <input className="mt-1 w-full border rounded p-2" value={form.country ?? ''} onChange={(e) => setForm({ ...form, country: e.target.value })} />
           </div>
           <div>
             <label className="block text-sm font-medium">ID Number</label>
@@ -318,11 +314,8 @@ useEffect(() => {
         </div>
         {!isDependent && (
           <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium">Country</label>
-            <input className="mt-1 w-full border rounded p-2" value={form.country ?? ''} onChange={(e) => setForm({ ...form, country: e.target.value })} />
-          </div>
-          <div>
+
+         
             <label className="block text-sm font-medium">Company (if employed)</label>
             <input
               type="text"
@@ -355,7 +348,7 @@ useEffect(() => {
                 }
               }} className="text-brand text-sm mt-1">Create new company &quot;{companySearchQuery}&quot;</button>
             )}
-          </div>
+          
         </div>
         )}
         <div className="grid grid-cols-2 gap-4">

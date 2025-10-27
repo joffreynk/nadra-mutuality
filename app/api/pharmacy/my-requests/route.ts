@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     const list = await prisma.pharmacyRequest.findMany({
       where,
       include: {
-        member: { select: { id: true, name: true, memberCode: true } },
+        member: { select: { id: true, name: true, memberCode: true, category: { select: { name: true, coveragePercent: true } } } },
         user: { select: { id: true, name: true, role: true } },
         // include only matching child items (so the array will be non-empty)
         pharmacyRequests: {

@@ -20,7 +20,7 @@ export async function GET(req: Request) {
       where, 
       include: {
         pharmacyRequests: {where: {userAproverId: session.user.id}, include: {user: {select: {id: true, name: true}}}},
-        member: {select: { id: true, name: true, memberCode: true, coveragePercent: true }},
+        member: {select: { id: true, name: true, memberCode: true, category: { select: { name: true, coveragePercent: true } } }},
         user: {select: { id: true, name: true, email: true }},
         pharmacyRequestReceipts: {where: {userId: session.user.id}, select: { id: true, url: true }},
       },

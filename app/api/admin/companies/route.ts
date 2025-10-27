@@ -51,9 +51,9 @@ export async function GET(req: Request) {
   const where: any = { organizationId };
   if (q) {
     where.OR = [
-      { name: { contains: q, mode: 'insensitive' } },
-      { email: { contains: q, mode: 'insensitive' } },
-      { phoneNumber: { contains: q, mode: 'insensitive' } },
+      { name: { contains: q } },
+      { email: { contains: q } },
+      { phoneNumber: { contains: q } },
     ];
   }
 

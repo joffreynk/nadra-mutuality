@@ -34,7 +34,7 @@ export async function GET(req: Request) {
         pharmacyRequestReceipts: {where: {
           pharmacyRequestId: session.user.id
         }},
-        member: true,
+        member: { include: { category: { select: { name: true, coveragePercent: true } } } },
         user: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },

@@ -16,8 +16,7 @@ const validationSchema = z.object({
   idNumber: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
   companyId: z.string().optional().nullable(),
-  category: z.string().min(1, 'Category is required'),
-  coveragePercent: z.coerce.number().min(20).max(100),
+  categoryID: z.string().min(1, 'Category is required'),
   passportPhotoUrl: z.string().optional().nullable(),
 })
 
@@ -46,13 +45,12 @@ async function updateMember(memberId: string, formData: FormData, member: any) {
       idNumber: formData.get('idNumber') as string || member.idNumber,
       country: formData.get('country') as string || member.country,
       companyId: formData.get('companyId') as string || member.companyId,
-      category: formData.get('category') as string || member.category,
+      categoryID: formData.get('categoryID') as string || member.categoryID,
       coveragePercent: Number(formData.get('coveragePercent')) || member.coveragePercent,
       passportPhotoUrl: passportPhotoUrl || member.passportPhotoUrl,
     }
     
     const validated = validationSchema.parse(payload)
-    console.log('MEMBER UPDATE VALIDATED', memberId);
     const res = await fetch(`${process.env.NEXTAUTH_URL}/api/members/${memberId}`, {
       method: 'PUT',
       credentials: 'include',
@@ -68,8 +66,6 @@ async function updateMember(memberId: string, formData: FormData, member: any) {
       throw new Error(error.message)
     } 
     revalidatePath('/members');
-    console.log('GETTING DATA READY222');
-
     return { success: true }
 
   } catch (error: any) {
@@ -156,24 +152,12 @@ export default async function EditMemberPage({ params }: { params: any }) {
             <label className="block text-sm font-medium">Category</label>
             <select 
               name="category"
-              defaultValue={member.category ?? ''} 
+              defaultValue={categories.find(c=>c.id === member.categoryID)?.id ?? ''} 
               className="mt-1 w-full border rounded p-2"
-            >
-              {categories.length === 0 && <option>A</option>}
-              {categories.map((c:any) => (
-                <option key={c.id} value={c.name}>{c.name}</option>
+            > {categories.map((c:any) => (
+                <option key={c.id} value={c.id}>{c.name}   -    {c.coveragePercent}%</option>
               ))}
             </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium">Coverage %</label>
-            <input 
-              type="number"
-              name="coveragePercent"
-              defaultValue={member.coveragePercent ?? 100}
-              className="mt-1 w-full border rounded p-2" 
-            />
           </div>
         </div>
 

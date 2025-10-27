@@ -94,13 +94,15 @@ model VerificationToken {
 model Member {
   id               String            @id @default(cuid())
   organizationId   String
+  categoryID       String
+  category         Category          @relation(fields: [categoryID], references: [id])
   organization     Organization      @relation(fields: [organizationId], references: [id])
   memberCode       String            @unique
   name             String
   dob              DateTime
   contact          String? // phone
   email            String?
-  address          String?
+  address          String
   idNumber         String?
   passportPhotoUrl String?
   dependentProofUrl String?
@@ -110,9 +112,6 @@ model Member {
   country          String?
   companyId        String?
   company          Company?          @relation(fields: [companyId], references: [id])
-  paidBy           String? // employer/self
-  category         String
-  coveragePercent  Int               @default(80)
   status           String            @default("Active")
   invoices         Invoice[]
   claims           Claim[]
@@ -225,6 +224,7 @@ model Category {
   price           Decimal?     @db.Decimal(10, 2)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  members Member[]
 
   @@unique([name])
   @@index([organizationId])

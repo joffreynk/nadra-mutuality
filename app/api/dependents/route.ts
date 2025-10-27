@@ -33,14 +33,12 @@ export async function POST(req: Request) {
         dob: new Date(dob),
         passportPhotoUrl,
         isDependent: true,
-        category: parent.category,
-        coveragePercent: parent.coveragePercent,
+        categoryID: parent.categoryID,
         contact: parent.contact,
         address: parent.address,
         email: parent.email,
         country: parent.country,
         companyId: parent.companyId,
-        paidBy: parent.paidBy,
         status: 'Active',
       }
     });

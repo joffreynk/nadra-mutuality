@@ -10,12 +10,11 @@ const createMemberSchema = z.object({
   gender: z.string().min(1),
   email: z.string().email().optional(),
   contact: z.string().optional(),
-  address: z.string().optional(),
+  address: z.string().min(3, 'Address is required'),
   idNumber: z.string().optional(),
   country: z.string().optional(),
   companyId: z.string().optional().nullable(),
-  category: z.string(),
-  coveragePercent: z.number().min(0).max(100),
+  categoryID: z.string(),
   passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
   dependentProofUrl: z.string().optional().nullable(),
   isDependent: z.boolean().default(false),
@@ -55,8 +54,7 @@ export async function POST(req: Request) {
       companyId: data.companyId,
       passportPhotoUrl: data.passportPhotoUrl,
       dependentProofUrl: data.dependentProofUrl,
-      category: data.category,
-      coveragePercent: data.coveragePercent,
+      categoryID: data.categoryID,
       isDependent: data.isDependent,
       familyRelationship: data.familyRelationship || null,
     }
@@ -89,7 +87,7 @@ export async function GET(req: Request) {
   ];
   const members = await prisma.member.findMany({ 
     where,
-    include: { company: true },
+    include: { company: true, category: true },
     orderBy: { createdAt: 'desc' },
   });
   if (!members) return NextResponse.json({ error: 'No members found' }, { status: 404 });
