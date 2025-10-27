@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { set, z } from 'zod';
+import { z } from 'zod';
 
 type Category = { id: string; name: string; coveragePercent: number, category: string};
 type SimpleMember = { id: string; name: string; memberCode: string, isDependent: boolean, categoryID: string, companyId: string };
@@ -32,7 +32,7 @@ export default function NewMemberPage() {
   const [passportFile, setPassportFile] = useState<File | null>(null);
   const [dependentProof, setDependentProof] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  // const [members, setMembers] = useState<SimpleMember[]>([]);
+
   const [parents, setParents] = useState<SimpleMember[]>([]);
   const [dependents, setDependents] = useState<SimpleMember[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -40,7 +40,7 @@ export default function NewMemberPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false); // Add loading state
+  const [loading, setLoading] = useState(false);
 
   const fetchData = async () => {
       const cres = await fetch('/api/admin/categories');
@@ -171,6 +171,10 @@ useEffect(() => {
       });
 
       const parsed = validationSchema.safeParse(payload);
+      console.log(currentMember);
+      
+      console.log(parsed);
+      
       if (!parsed.success) {
         const fieldErrors = parsed.error.flatten().fieldErrors;
         const errorMessages = Object.entries(fieldErrors)

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
+import { on } from "events";
 
 const validationSchema = z.object({
   memberCode: z.string().min(1).optional(),
@@ -62,7 +63,6 @@ export default function EditMemberClient() {
         setCategories(Array.isArray(catJson) ? catJson : []);
         setCompanies(Array.isArray(compJson) ? compJson : []);
 
-        // initialize form state with member values
         setFormState({
           name: mJson.name ?? "",
           gender: mJson.gender ?? "Male",
@@ -74,6 +74,12 @@ export default function EditMemberClient() {
           companyId: mJson.companyId ?? "",
           categoryID: mJson.categoryID ?? "",
           dob: mJson.dob ? new Date(mJson.dob).toISOString().slice(0, 10) : "",
+          passportPhotoUrl: mJson.passportPhotoUrl ?? "",
+          dependentProofUrl: mJson.dependentProofUrl ?? "",
+          familyRelationship: mJson.familyRelationship ?? "",
+          status: mJson.status ?? "",
+          isDependent: mJson.isDependent ?? false,
+
         });
       } catch (err: any) {
         console.error(err);
@@ -99,6 +105,8 @@ export default function EditMemberClient() {
     setError(null);
     setSaving(true);
 
+
+
     try {
       // Build payload from formState and file input
       const form = new FormData(e.currentTarget);
@@ -120,9 +128,9 @@ export default function EditMemberClient() {
 
       // Merge values (form entries fallback to existing member fields)
       const payload = {
-        ...member,
+        ...formState,
         name: (form.get("name") as string) || member.name,
-        dob: (form.get("dob") as string) || (member.dob ? new Date(member.dob).toISOString().slice(0, 10) : null),
+        dob: formState.dob || (member.dob ? new Date(member.dob).toISOString().slice(0, 10) : null),
         gender: (form.get("gender") as string) || member.gender,
         email: (form.get("email") as string) || member.email,
         contact: (form.get("contact") as string) || member.contact,
@@ -131,9 +139,10 @@ export default function EditMemberClient() {
         country: (form.get("country") as string) || member.country,
         companyId: (form.get("companyId") as string) || member.companyId,
         categoryID: (form.get("categoryID") as string) || member.categoryID,
-        passportPhotoUrl,
+        passportPhotoUrl: passportPhotoUrl || formState.passportPhotoUrl || member.passportPhotoUrl,
+        dependentProofUrl: formState.dependentProofUrl || member.dependentProofUrl,
       };
-
+    
       // Client-side validation using zod
       validationSchema.parse(payload);
 
@@ -200,8 +209,12 @@ export default function EditMemberClient() {
           </div>
         </div>
 
-        {!member.isDependent && (
           <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium">Date of Birth</label>
+          <input type="date" className="mt-1 w-full border rounded p-2" value={formState.dob} onChange={(e) => setFormState({ ...formState, dob: e.target.value })} />
+        </div>
+        {!member.isDependent && (
             <div>
               <label className="block text-sm font-medium">Category</label>
               <select name="categoryID" value={formState.categoryID} onChange={onChange} className="mt-1 w-full border rounded p-2">
@@ -213,8 +226,8 @@ export default function EditMemberClient() {
                 ))}
               </select>
             </div>
-          </div>
         )}
+          </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
