@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { parse } from 'path';
+import { log } from 'console';
 
 const categorySchema = z.object({
   name: z.string().min(1),
-  coveragePercent: z.number().min(0).max(100).default(80)
+  coveragePercent: z.number().min(0).max(100).default(80),
+  price: z.number().min(1).default(0)
 });
 
 export async function GET() {
@@ -29,11 +32,11 @@ export async function PUT(req: Request) {
   const session = await auth();
   if (!session || session.user?.role !== 'HEALTH_OWNER') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const json = await req.json();
-  const schema = categorySchema.extend({ id: z.string() });
-  const parsed = schema.safeParse(json);
+  const id = json?.data?.id;
+  delete json.data.id;
+  const parsed = categorySchema.safeParse({name: json.data.name, coveragePercent: json.data.coveragePercent, price: json.data.price});
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  const { id, ...data } = parsed.data;
-  const updated = await prisma.category.update({ where: { id }, data });
+  const updated = await prisma.category.update({ where: { id }, data: parsed.data });
   return NextResponse.json(updated);
 }
 

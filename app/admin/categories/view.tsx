@@ -1,12 +1,13 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-type Category = { id: string; name: string; coveragePercent: number };
+type Category = { id: string; name: string; coveragePercent: number; price: number };
 
 export default function CategoriesClient({ initial }: { initial: Category[] }) {
   const [categories, setCategories] = useState<Category[]>(initial);
   const [name, setName] = useState('');
-  const [coveragePercent, setCoveragePercent] = useState(80);
+  const [coveragePercent, setCoveragePercent] = useState<number | undefined>();
+  const [price, setPrice] = useState<number | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,11 +23,12 @@ export default function CategoriesClient({ initial }: { initial: Category[] }) {
       const res = await fetch('/api/admin/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, coveragePercent })
+        body: JSON.stringify({ name, coveragePercent, price })
       });
       if (!res.ok) throw new Error('Failed');
       setName('');
       setCoveragePercent(80);
+      setPrice(0);
       await refresh();
     } catch (e) {
       setError('Failed to create category');
@@ -35,14 +37,14 @@ export default function CategoriesClient({ initial }: { initial: Category[] }) {
     }
   }
 
-  async function updateCategory(id: string, data: Partial<Category>) {
+  async function updateCategory( data: Partial<Category>) {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/admin/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, ...data })
+        body: JSON.stringify({ data })
       });
       if (!res.ok) throw new Error('Failed');
       await refresh();
@@ -82,7 +84,11 @@ export default function CategoriesClient({ initial }: { initial: Category[] }) {
           </div>
           <div>
             <label className="block text-sm font-medium">Coverage %</label>
-            <input type="number" min={0} max={100} className="w-full border rounded p-2" value={coveragePercent} onChange={(e) => setCoveragePercent(Number(e.target.value))} />
+            <input type="number" min={0} max={100} className="w-full border rounded p-2" placeholder='80%' value={coveragePercent} onChange={(e) => setCoveragePercent(Number(e.target.value))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Price</label>
+            <input type="number" min={0} className="w-full border rounded p-2" placeholder='10000' value={price?.toLocaleString()} onChange={(e) => setPrice(Number(e.target.value))} />
           </div>
           <div className="flex items-end">
             <button onClick={createCategory} disabled={loading} className="px-4 py-2 bg-brand text-white rounded">{loading ? 'Saving…' : 'Save'}</button>
@@ -102,6 +108,7 @@ export default function CategoriesClient({ initial }: { initial: Category[] }) {
                 <tr className="text-left text-gray-600 border-b">
                   <th className="py-2 pr-4">Name</th>
                   <th className="py-2 pr-4">Coverage %</th>
+                  <th className="py-2 pr-4">Price</th>
                   <th className="py-2 pr-4">Actions</th>
                 </tr>
               </thead>
@@ -109,10 +116,13 @@ export default function CategoriesClient({ initial }: { initial: Category[] }) {
                 {categories.map(c => (
                   <tr key={c.id} className="border-b last:border-0">
                     <td className="py-2 pr-4">
-                      <input className="border rounded p-1" defaultValue={c.name} onBlur={(e) => updateCategory(c.id, { name: e.target.value })} />
+                      <input className="border rounded p-1" defaultValue={c.name} onBlur={(e) => updateCategory({ id: c.id, price: c.price, coveragePercent: c.coveragePercent, name: e.target.value })} />
                     </td>
                     <td className="py-2 pr-4">
-                      <input type="number" min={0} max={100} className="border rounded p-1 w-24" defaultValue={c.coveragePercent} onBlur={(e) => updateCategory(c.id, { coveragePercent: Number(e.target.value) })} />
+                      <input type="number" min={0} max={100} className="border rounded p-1 w-24" defaultValue={c.coveragePercent} placeholder='80%' onBlur={(e) => updateCategory({ id: c.id, price: c.price, name: c.name, coveragePercent: Number(e.target.value) })} />
+                    </td>
+                    <td className="py-2 pr-4">
+                      <input type="number" min={0.0} className="border rounded p-1" defaultValue={c.price} placeholder='10000' onBlur={(e) => updateCategory({ id: c.id, coveragePercent: c.coveragePercent, name: c.name, price: Number(e.target.value) })} />
                     </td>
                     <td className="py-2 pr-4">
                       <button onClick={() => deleteCategory(c.id)} className="px-3 py-1 border rounded text-red-600">Delete</button>
