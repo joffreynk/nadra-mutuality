@@ -3,21 +3,28 @@ import { useState } from 'react';
 
 export interface SystemSettingFormState {
   systemName: string;
-  defaultCoveragePercent: number;
-  sessionTimeoutMinutes: number;
-  enableTwoFactor: boolean;
-  requireStrongPasswords: boolean;
-  enableAccountLockout: boolean;
-  failedLoginThreshold: number;
-  emailNotifications: boolean;
-  smsNotifications: boolean;
-  systemAlerts: boolean;
+  phoneNumber: string;
+  email: string;
+  location: string;
+  logo: string;
 }
 
 export default function SettingsForm({ initial }: { initial: SystemSettingFormState }) {
   const [form, setForm] = useState<SystemSettingFormState>(initial);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [uploadTheLogo, setuploadTheLogo] = useState<File | null>(null);
+
+  const uploadLogo = async (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const up = await fetch('/api/uploads', { method: 'POST', body: fd });
+    if (!up.ok) throw new Error('Logo upload failed');
+    const upj = await up.json();
+    setForm({ ...form, logo: upj.url });
+
+
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,77 +60,44 @@ export default function SettingsForm({ initial }: { initial: SystemSettingFormSt
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Default Coverage Percentage</label>
+            <label className="block text-sm font-medium mb-1">Email</label>
             <input
-              type="number"
+              type="email"
               className="w-full border rounded p-2"
-              min={0}
-              max={100}
-              value={form.defaultCoveragePercent}
-              onChange={(e) => setForm({ ...form, defaultCoveragePercent: Number(e.target.value) })}
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Session Timeout (minutes)</label>
+            <label className="block text-sm font-medium mb-1">Location</label>
             <input
-              type="number"
+              type="text"
+              className="w-full border rounded p-2"
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Phone Number</label>
+            <input
+              type="tel"
               className="w-full border rounded p-2"
               min={5}
-              max={480}
-              value={form.sessionTimeoutMinutes}
-              onChange={(e) => setForm({ ...form, sessionTimeoutMinutes: Number(e.target.value) })}
+              max={50}
+              value={form.phoneNumber}
+              onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
             />
           </div>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow border">
-        <h2 className="text-xl font-semibold mb-4">Security Settings</h2>
-        <div className="space-y-4">
-          <label className="flex items-center">
-            <input type="checkbox" className="mr-2" checked={form.enableTwoFactor} onChange={(e) => setForm({ ...form, enableTwoFactor: e.target.checked })} />
-            <span className="text-sm font-medium">Enable Two-Factor Authentication</span>
-          </label>
-          <label className="flex items-center">
-            <input type="checkbox" className="mr-2" checked={form.requireStrongPasswords} onChange={(e) => setForm({ ...form, requireStrongPasswords: e.target.checked })} />
-            <span className="text-sm font-medium">Require Strong Passwords</span>
-          </label>
-          <label className="flex items-center">
-            <input type="checkbox" className="mr-2" checked={form.enableAccountLockout} onChange={(e) => setForm({ ...form, enableAccountLockout: e.target.checked })} />
-            <span className="text-sm font-medium">Enable Account Lockout</span>
-          </label>
           <div>
-            <label className="block text-sm font-medium mb-1">Failed Login Attempts Before Lockout</label>
+            <label className="block text-sm font-medium mb-1">Logo Picture</label>
             <input
-              type="number"
+              type="file"
               className="w-full border rounded p-2"
-              min={3}
-              max={10}
-              value={form.failedLoginThreshold}
-              onChange={(e) => setForm({ ...form, failedLoginThreshold: Number(e.target.value) })}
+              onChange={(e) => uploadLogo(e.target.files?.[0]!)}
             />
           </div>
         </div>
       </div>
-
-      <div className="bg-white p-6 rounded-lg shadow border">
-        <h2 className="text-xl font-semibold mb-4">Notification Settings</h2>
-        <div className="space-y-4">
-          <label className="flex items-center">
-            <input type="checkbox" className="mr-2" checked={form.emailNotifications} onChange={(e) => setForm({ ...form, emailNotifications: e.target.checked })} />
-            <span className="text-sm font-medium">Email Notifications</span>
-          </label>
-          <label className="flex items-center">
-            <input type="checkbox" className="mr-2" checked={form.smsNotifications} onChange={(e) => setForm({ ...form, smsNotifications: e.target.checked })} />
-            <span className="text-sm font-medium">SMS Notifications</span>
-          </label>
-          <label className="flex items-center">
-            <input type="checkbox" className="mr-2" checked={form.systemAlerts} onChange={(e) => setForm({ ...form, systemAlerts: e.target.checked })} />
-            <span className="text-sm font-medium">System Alerts</span>
-          </label>
-        </div>
-      </div>
-
       {message && <div className="text-sm text-gray-600">{message}</div>}
 
       <div className="flex justify-end gap-2">

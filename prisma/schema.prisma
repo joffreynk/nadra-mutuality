@@ -40,7 +40,7 @@ model User {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   email          String        @unique
   username       String        @unique
-  name           String?
+  name           String
   passwordHash   String
   role           RoleType      @default(WORKER)
   failedLogins   Int           @default(0)
@@ -202,15 +202,10 @@ model SystemSetting {
   organizationId         String       @unique
   organization           Organization @relation(fields: [organizationId], references: [id])
   systemName             String       @default("Nadra Healthcare Insurance")
-  defaultCoveragePercent Int          @default(80)
-  sessionTimeoutMinutes  Int          @default(30)
-  enableTwoFactor        Boolean      @default(true)
-  requireStrongPasswords Boolean      @default(true)
-  enableAccountLockout   Boolean      @default(true)
-  failedLoginThreshold   Int          @default(5)
-  emailNotifications     Boolean      @default(true)
-  smsNotifications       Boolean      @default(false)
-  systemAlerts           Boolean      @default(true)
+  location              String?      
+  phoneNumber           String?
+  email                  String?
+  logo                     String?
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 }

@@ -5,15 +5,11 @@ import { prisma } from '@/lib/prisma';
 
 const settingsSchema = z.object({
   systemName: z.string().min(2),
-  defaultCoveragePercent: z.number().min(0).max(100),
-  sessionTimeoutMinutes: z.number().min(5).max(480),
+  phoneNumber: z.string().min(5).max(50),
   enableTwoFactor: z.boolean(),
-  requireStrongPasswords: z.boolean(),
-  enableAccountLockout: z.boolean(),
-  failedLoginThreshold: z.number().min(3).max(10),
-  emailNotifications: z.boolean(),
-  smsNotifications: z.boolean(),
-  systemAlerts: z.boolean()
+  email: z.string().email(),
+  location: z.string().min(2).max(100),
+  logo: z.string().url().optional(),
 });
 
 export async function GET() {

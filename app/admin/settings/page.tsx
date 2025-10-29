@@ -23,15 +23,10 @@ export default async function AdminSettingsPage() {
 
       <SettingsForm initial={{
         systemName: settings.systemName,
-        defaultCoveragePercent: settings.defaultCoveragePercent,
-        sessionTimeoutMinutes: settings.sessionTimeoutMinutes,
-        enableTwoFactor: settings.enableTwoFactor,
-        requireStrongPasswords: settings.requireStrongPasswords,
-        enableAccountLockout: settings.enableAccountLockout,
-        failedLoginThreshold: settings.failedLoginThreshold,
-        emailNotifications: settings.emailNotifications,
-        smsNotifications: settings.smsNotifications,
-        systemAlerts: settings.systemAlerts
+        phoneNumber: settings.phoneNumber,
+        email: settings.email,
+        location: settings.location,
+        logo: settings.logo,
       }} />
     </div>
   );

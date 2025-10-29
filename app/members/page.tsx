@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import { log } from 'console';
 export const runtime = 'nodejs';
 
 export default async function MembersPage() {
@@ -18,6 +19,7 @@ export default async function MembersPage() {
       category: true, company: true
     }
   });
+  console.log(members);
 
   return (
     <div className="space-y-6">
