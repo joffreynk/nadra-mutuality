@@ -1,239 +1,241 @@
-// pages/api/card.ts
-import type { NextApiRequest, NextApiResponse } from "next";
-import { createCanvas, loadImage, registerFont } from "canvas";
-import path from "path";
-import fs from "fs";
-import { PrismaClient } from "@prisma/client";
+"use client";
 
-const prisma = new PrismaClient();
+import { Decimal } from "@prisma/client/runtime/library";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-// Optional: register a font placed at public/fonts/Inter-Regular.ttf
-const FONT_REGULAR = path.join(process.cwd(), "public", "fonts", "Inter-Regular.ttf");
-const FONT_BOLD = path.join(process.cwd(), "public", "fonts", "Inter-Bold.ttf");
-if (fs.existsSync(FONT_REGULAR)) registerFont(FONT_REGULAR, { family: "Inter", weight: "400" });
-if (fs.existsSync(FONT_BOLD)) registerFont(FONT_BOLD, { family: "Inter", weight: "700" });
+type Member = {
+  id: string;
+  name: string;
+  memberCode: string;
+  passportPhotoUrl?: string | null;
+  isDependent?: boolean;
+  familyRelationship?: string | null;
+  category?: { name?: string, coveragePercent: Decimal } | null;
+  company?: { name?: string } | null;
+};
 
-// Driving license size (ID-1): ~85.6mm × 53.98mm. We use ~1012 x 640 px (~300dpi equivalent).
-const WIDTH = 1012;
-const HEIGHT = 640;
+export default function CardGeneratorClient() {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [query, setQuery] = useState("");
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [selected, setSelected] = useState<Member | null>(null);
+  const [cardUrl, setCardUrl] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-function dependentOf(memberCode?: string) {
-  if (!memberCode) return null;
-  if (memberCode.includes("/")) return memberCode.split("/")[0];
-  return null;
-}
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (cardUrl) URL.revokeObjectURL(cardUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-async function findMember({ id, memberCode }: { id?: string; memberCode?: string }) {
-  if (id) {
-    return prisma.member.findUnique({
-      where: { id },
-      include: { category: true, company: true },
-    });
-  }
-  if (memberCode) {
-    return prisma.member.findFirst({
-      where: { memberCode },
-      include: { category: true, company: true },
-    });
-  }
-  return null;
-}
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  try {
-    const { memberCode, id } = req.query as { memberCode?: string; id?: string };
-
-    if (!memberCode && !id) {
-      return res.status(400).json({ error: "Provide ?memberCode=... or ?id=... (selected member identifier)." });
-    }
-
-    const member = await findMember({ id, memberCode });
-    if (!member) return res.status(404).json({ error: "Member not found" });
-
-    const canvas = createCanvas(WIDTH, HEIGHT);
-    const ctx = canvas.getContext("2d");
-
-    // --- Background ---
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-    // --- Header (red) ---
-    const headerH = Math.round(HEIGHT * 0.18); // header height
-    ctx.fillStyle = "#c62828"; // red header
-    ctx.fillRect(0, 0, WIDTH, headerH);
-
-    // --- Logo reserved box on the left inside header ---
-    const logoBoxSize = Math.round(headerH * 0.8);
-    const logoBoxX = Math.round(WIDTH * 0.03);
-    const logoBoxY = Math.round((headerH - logoBoxSize) / 2);
-    ctx.fillStyle = "#ffffff10"; // subtle bg for logo box
-    ctx.fillRect(logoBoxX - 6, logoBoxY - 6, logoBoxSize + 12, logoBoxSize + 12);
-
-    // Try to load a logo at /public/logo.png (optional)
-    try {
-      const logoPath = path.join(process.cwd(), "public", "logo.png");
-      if (fs.existsSync(logoPath)) {
-        const logo = await loadImage(logoPath);
-        // fit into box preserving aspect
-        const scale = Math.min(logoBoxSize / logo.width, logoBoxSize / logo.height);
-        const lw = logo.width * scale;
-        const lh = logo.height * scale;
-        ctx.drawImage(logo as any, logoBoxX + (logoBoxSize - lw) / 2, logoBoxY + (logoBoxSize - lh) / 2, lw, lh);
-      } else {
-        // placeholder
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(logoBoxX + 8, logoBoxY + 8, logoBoxSize - 16, logoBoxSize - 16);
+  // Fetch members once on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoadingMembers(true);
+      setError(null);
+      try {
+        const res = await fetch(`api/members`);
+        if (!res.ok) throw new Error(`Failed to fetch members: ${res.status}`);
+        const data = (await res.json()) as Member[];
+        if (!cancelled && mountedRef.current) setMembers(data || []);
+      } catch (err: any) {
+        console.error(err);
+        if (!cancelled && mountedRef.current) setError(err?.message ?? "Error loading members");
+      } finally {
+        if (!cancelled && mountedRef.current) setLoadingMembers(false);
       }
-    } catch (err) {
-      // ignore logo errors
     }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [members.length]);
 
-    // --- Insurance name centered in header (white text) ---
-    ctx.fillStyle = "#ffffff";
-    ctx.textAlign = "center";
-    ctx.font = `bold ${Math.round(headerH * 0.33)}px "Inter", sans-serif`;
-    const insuranceName = "INSURANCE NAME"; // replace or inject dynamically if you want
-    ctx.fillText(insuranceName, WIDTH / 2 + 40, Math.round(headerH / 2 + (headerH * 0.1)));
+  // Debounced local filter: small client-side debounce
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim().toLowerCase()), 220);
+    return () => clearTimeout(t);
+  }, [query]);
 
-    // --- Main body layout ---
-    // Left: avatar + small details on left band
-    const leftBandW = Math.round(WIDTH * 0.36);
-    // subtle left band background
-    ctx.fillStyle = "#f7f7f7";
-    ctx.fillRect(0, headerH, leftBandW, HEIGHT - headerH - Math.round(HEIGHT * 0.12));
+  const filtered = useMemo(() => {
+    if (!debouncedQuery) return members;
+    return members.filter((m) => {
+      const q = debouncedQuery;
+      if (m.memberCode && m.memberCode.toLowerCase().includes(q)) return true;
+      if (m.name && m.name.toLowerCase().includes(q)) return true;
+      if (m.company?.name && m.company.name.toLowerCase().includes(q)) return true;
+      if (m.category?.name && m.category.name.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [members, debouncedQuery]);
 
-    // Avatar circle
-    const avatarSize = Math.round(Math.min(leftBandW * 0.7, HEIGHT * 0.45));
-    const avatarX = Math.round((leftBandW) / 2);
-    const avatarY = headerH + Math.round((HEIGHT - headerH) * 0.25);
-
-    // Load passport photo (supports /uploads/... under public or full URL)
-    let avatarImg: any = null;
+  // Generate card for selected member
+  async function generateCardFor(member: Member) {
     try {
-      const photoUrl = member.passportPhotoUrl ?? "";
-      if (photoUrl.startsWith("/")) {
-        const imgPath = path.join(process.cwd(), "public", photoUrl);
-        if (fs.existsSync(imgPath)) avatarImg = await loadImage(imgPath);
-      } else if (photoUrl.startsWith("http")) {
-        avatarImg = await loadImage(photoUrl);
+      setGenerating(true);
+      setError(null);
+      if (cardUrl) {
+        URL.revokeObjectURL(cardUrl);
+        setCardUrl(null);
       }
-    } catch (e) {
-      avatarImg = null;
+      // Hit the server-side endpoint which returns a PNG
+      const url = `api/cards`;
+      const res = await fetch(url, 
+        {method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: member.id, memberCode: member.memberCode }),
+      }
+      );
+      if (!res.ok) throw new Error(`Card generation failed: ${res.status}`);
+      const CardUrl = await res.json();
+      if (mountedRef.current) setCardUrl(CardUrl.url);
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message ?? "Error generating card");
+    } finally {
+      if (mountedRef.current) setGenerating(false);
     }
-
-    // draw circular avatar
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(avatarX, avatarY, avatarSize / 2, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-
-    if (avatarImg) {
-      // center-crop
-      const scale = Math.max(avatarSize / avatarImg.width, avatarSize / avatarImg.height);
-      const sw = avatarSize / scale;
-      const sh = avatarSize / scale;
-      const sx = Math.max(0, (avatarImg.width - sw) / 2);
-      const sy = Math.max(0, (avatarImg.height - sh) / 2);
-      ctx.drawImage(avatarImg, sx, sy, sw, sh, avatarX - avatarSize / 2, avatarY - avatarSize / 2, avatarSize, avatarSize);
-    } else {
-      // placeholder circle
-      ctx.fillStyle = "#ddd";
-      ctx.fillRect(avatarX - avatarSize / 2, avatarY - avatarSize / 2, avatarSize, avatarSize);
-      ctx.fillStyle = "#aaa";
-      ctx.font = `${Math.round(avatarSize * 0.12)}px "Inter", sans-serif`;
-      ctx.textAlign = "center";
-      ctx.fillText("No Photo", avatarX, avatarY + 6);
-    }
-    ctx.restore();
-
-    // draw border around avatar
-    ctx.beginPath();
-    ctx.arc(avatarX, avatarY, avatarSize / 2 + 6, 0, Math.PI * 2);
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "#ffffff";
-    ctx.stroke();
-
-    // --- Right side: textual info ---
-    ctx.textAlign = "left";
-    const rightX = leftBandW + Math.round(WIDTH * 0.04);
-    let y = headerH + Math.round(HEIGHT * 0.14);
-
-    ctx.fillStyle = "#111";
-    ctx.font = `bold ${Math.round(HEIGHT * 0.09)}px "Inter", sans-serif`; // big name
-    ctx.fillText(member.name ?? "Unknown", rightX, y);
-    y += Math.round(HEIGHT * 0.12);
-
-    ctx.font = `normal ${Math.round(HEIGHT * 0.05)}px "Inter", sans-serif`;
-    ctx.fillStyle = "#333";
-    ctx.fillText(`Member Code: ${member.memberCode}`, rightX, y);
-    y += Math.round(HEIGHT * 0.075);
-
-    const categoryName = member.category?.name ?? "—";
-    ctx.fillText(`Category: ${categoryName}`, rightX, y);
-    y += Math.round(HEIGHT * 0.075);
-
-    if (member.company?.name) {
-      ctx.fillText(`Company: ${member.company.name}`, rightX, y);
-      y += Math.round(HEIGHT * 0.075);
-    }
-
-    // Dependent handling (explicit note)
-    const depOf = dependentOf(member.memberCode);
-    if (member.isDependent || depOf) {
-      ctx.fillStyle = "#b71c1c"; // dark red for emphasis
-      ctx.font = `bold ${Math.round(HEIGHT * 0.05)}px "Inter", sans-serif`;
-      const depText = depOf ? `Dependent of: ${depOf}` : `Dependent (${member.familyRelationship ?? "—"})`;
-      ctx.fillText(depText, rightX, y);
-      y += Math.round(HEIGHT * 0.09);
-      ctx.fillStyle = "#333";
-      ctx.font = `normal ${Math.round(HEIGHT * 0.045)}px "Inter", sans-serif`;
-    }
-
-    // Reserve small barcode / QR area bottom-right (visual)
-    const qrW = Math.round(WIDTH * 0.20);
-    const qrH = Math.round((HEIGHT - headerH) * 0.18);
-    const qrX = WIDTH - qrW - Math.round(WIDTH * 0.04);
-    const qrY = HEIGHT - Math.round(HEIGHT * 0.12) - qrH - 10;
-    ctx.fillStyle = "#efefef";
-    ctx.fillRect(qrX, qrY, qrW, qrH);
-    ctx.fillStyle = "#999";
-    ctx.font = `${Math.round(qrH * 0.18)}px "Inter", sans-serif`;
-    ctx.textAlign = "center";
-    ctx.fillText("QR/Barcode", qrX + qrW / 2, qrY + qrH / 2 + 8);
-    ctx.textAlign = "left";
-
-    // --- Footer stripe (dark gray) ---
-    const footerH = Math.round(HEIGHT * 0.12);
-    const footerY = HEIGHT - footerH;
-    ctx.fillStyle = "#2f2f2f";
-    ctx.fillRect(0, footerY, WIDTH, footerH);
-
-    // Footer texts: working address and phone number (you can change values or pull from org)
-    const footerPadding = Math.round(WIDTH * 0.04);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `normal ${Math.round(footerH * 0.28)}px "Inter", sans-serif`;
-    const workingAddress = member.company?.address ?? "Organization working address";
-    const phone = member.company?.phoneNumber ?? "Phone: 000000000";
-    ctx.fillText(workingAddress, footerPadding, footerY + Math.round(footerH * 0.45));
-    ctx.textAlign = "right";
-    ctx.fillText(phone, WIDTH - footerPadding, footerY + Math.round(footerH * 0.45));
-
-    // --- small watermark/text bottom-left ---
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#fff5";
-    ctx.font = `normal ${Math.round(footerH * 0.18)}px "Inter", sans-serif`;
-    ctx.fillText("Generated by YourSystem", footerPadding, footerY + Math.round(footerH * 0.9));
-
-    // --- export PNG ---
-    const buffer = canvas.toBuffer("image/png");
-    res.setHeader("Content-Type", "image/png");
-    res.setHeader("Content-Disposition", `inline; filename="dl-card-${member.memberCode}.png"`);
-    res.status(200).send(buffer);
-  } catch (err) {
-    console.error("card generation error:", err);
-    res.status(500).json({ error: "Server error generating card" });
-  } finally {
-    // do not disconnect prisma here in serverless environments; keep connection pooling
   }
+
+  function handleSelect(member: Member) {
+    setSelected(member);
+    // auto-generate when a member is selected
+    generateCardFor(member);
+  }
+
+  return (
+    <div className="max-w-[1200px] mx-auto p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl md:text-2xl font-semibold">Member card generator</h2>
+          <p className="text-sm text-gray-500">Search by name, member code, company or category</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex gap-2 items-center">
+          <input
+            aria-label="Search members"
+            placeholder="Search member name, code or company..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1 border rounded px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <button
+            onClick={() => {
+              setQuery("");
+            }}
+            className="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200"
+            title="Clear"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* left: list */}
+          <div className="md:col-span-2 bg-white rounded shadow-sm overflow-auto max-h-[60vh]">
+            {loadingMembers ? (
+              <div className="p-4">Loading members...</div>
+            ) : error ? (
+              <div className="p-4 text-red-600">{error}</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-4 text-gray-600">No members match your search.</div>
+            ) : (
+              <ul>
+                {filtered.map((m) => (
+                  <li
+                    key={m.id}
+                    onClick={() => handleSelect(m)}
+                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                      selected?.id === m.id ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
+                      {m.passportPhotoUrl ? (
+                        // plain <img> — expects public paths or full URLs
+                        // Next/Image avoided for simplicity inside a client component
+                        <img
+                          src={m.passportPhotoUrl}
+                          alt={`${m.name} avatar`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Photo</div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{m.name}</div>
+                      <div className="text-sm text-gray-500 truncate">{m.memberCode} • {m.category?.name ?? "—"} • {m.category?.coveragePercent.toString().concat("%") ?? "—"}</div>
+                      {m.company?.name ? <div className="text-sm text-gray-400 truncate">{m.company.name}</div> : null}
+                    </div>
+
+                    <div className="text-sm text-gray-500">
+                      {m.isDependent ? <span className="text-red-600">Dependent</span> : <span>Member</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* right: preview + actions */}
+          <div className="md:col-span-1 bg-white rounded shadow-sm p-4 flex flex-col">
+            <div className="flex-1 flex flex-col items-center justify-center">
+              {!selected ? (
+                <div className="text-center text-gray-500">Select a member to preview card</div>
+              ) : generating ? (
+                <div className="text-center">
+                  <div className="mb-2">Generating card...</div>
+                  <div className="h-40 w-60 bg-gray-100 animate-pulse rounded" />
+                </div>
+              ) : cardUrl ? (
+                <div className="w-full flex flex-col items-center gap-3">
+                  <img src={cardUrl} alt={`Card ${selected.memberCode}`} className="w-full h-auto rounded shadow" />
+                  <div className="flex gap-2">
+                    <a
+                      href={cardUrl}
+                      download={`card-${selected.memberCode}.png`}
+                      className="px-3 py-2 bg-blue-600 text-white rounded shadow hover:opacity-95"
+                    >
+                      Download PNG
+                    </a>
+                    <button
+                      onClick={() => generateCardFor(selected)}
+                      className="px-3 py-2 border rounded hover:bg-gray-50"
+                    >
+                      Regenerate
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500">No preview yet — select a member to generate card.</div>
+              )}
+            </div>
+
+            {/* small meta area */}
+            <div className="mt-4 w-full text-sm text-gray-600">
+              <div className="flex justify-between">
+                <div>Selected:</div>
+                <div className="font-medium">{selected?.name ?? "—"}</div>
+              </div>
+              <div className="flex justify-between">
+                <div>Member code:</div>
+                <div className="font-medium">{selected?.memberCode ?? "—"}</div>
+              </div>
+
+              {error ? <div className="mt-2 text-red-600">{error}</div> : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
