@@ -6,10 +6,9 @@ import { prisma } from '@/lib/prisma';
 const settingsSchema = z.object({
   systemName: z.string().min(2),
   phoneNumber: z.string().min(5).max(50),
-  enableTwoFactor: z.boolean(),
   email: z.string().email(),
   location: z.string().min(2).max(100),
-  logo: z.string().url().optional(),
+  logo: z.string().optional(),
 });
 
 export async function GET() {
@@ -27,11 +26,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const json = await req.json().catch(() => null);
-  if (!json) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   const parsed = settingsSchema.safeParse(json);
+  console.log('PASSED',parsed);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
+
+  
   const organizationId = session.user.organizationId;
   const updated = await prisma.systemSetting.upsert({
     where: { organizationId },

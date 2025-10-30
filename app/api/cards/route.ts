@@ -79,10 +79,11 @@ export async function POST(req: Request) {
       where: { organizationId: member.organizationId },
     });
 
-    const SYSTEM_NAME = settings?.systemName ?? "INSURANCE NAME";
-    const WORKING_ADDRESS = settings?.location ?? member.company?.address ?? "Organization working address";
-    const PHONE_NUMBER = settings?.phoneNumber ?? member.company?.phoneNumber ?? "Phone: 000000000";
+    const SYSTEM_NAME = settings?.systemName ?? "NADRA INSURANCE";
+    const WORKING_ADDRESS = settings?.location ?? member.company?.address ?? "BUJUMBURA";
+    const PHONE_NUMBER = settings?.phoneNumber ?? member.company?.phoneNumber ?? "000000000";
     const EMAIL = settings?.email ?? member.email ?? "info@example.com";
+    const LOGO = settings?.logo ?? settings?.logo ?? "/logo.png";
 
     const canvas = createCanvas(WIDTH, HEIGHT);
     const ctx = canvas.getContext("2d");
@@ -104,27 +105,25 @@ export async function POST(req: Request) {
     ctx.fill();
 
     ctx.lineWidth = Math.max(4, Math.round(WIDTH * 0.008));
-    ctx.strokeStyle = "#0d6efd";
+    ctx.strokeStyle = "#f70202ff";
     roundedRectPath(ctx, innerX, innerY, innerW, innerH, borderRadius);
     ctx.stroke();
 
     // Inner margin
     const innerMargin = Math.round(WIDTH * 0.01);
 
-    // Header stripe (red)
+    // Header stripe Box
     const headerH = Math.round((innerH - innerMargin * 2) * 0.18);
     const headerX = innerX + innerMargin;
     const headerY = innerY + innerMargin;
     const headerW = innerW - innerMargin * 2;
-    ctx.fillStyle = "#c62828";
+    ctx.fillStyle = "#1f59b1ff";
+    // ctx.fillStyle = "#adadadff";
     ctx.fillRect(headerX, headerY, headerW, headerH);
 
-    // Header logo candidates (company logo preferred)
+    // Header logo candidates
     const logoCandidates = [
-      (member.company as any)?.logoUrl,
-      member.company ? `/company-logos/${member.company.id}.png` : null,
-      "/logo.png",
-      (settings as any)?.logoUrl,
+      LOGO
     ];
     const headerLogo = await tryLoadImage(...logoCandidates);
 
@@ -165,8 +164,7 @@ export async function POST(req: Request) {
     const footerX = innerX + innerMargin;
     const footerY = innerY + innerH - innerMargin - footerH;
     const footerW = headerW;
-
-    ctx.fillStyle = "#2f2f2f";
+    ctx.fillStyle = "#adadadff";
     ctx.fillRect(footerX, footerY, footerW, footerH);
 
     const footerPadding = Math.round(footerW * 0.04);
@@ -257,7 +255,7 @@ export async function POST(req: Request) {
     ctx.beginPath();
     ctx.arc(avatarCX, avatarCY, avatarSize / 2 + 6, 0, Math.PI * 2);
     ctx.lineWidth = 3;
-    ctx.strokeStyle = "#0d6efd";
+    ctx.strokeStyle = "#fd0d0dff";
     ctx.stroke();
 
     // Right column text (left aligned)
@@ -285,13 +283,11 @@ export async function POST(req: Request) {
 
     if (member.isDependent) {
       const depOf = await dependentOf(member.memberCode);
-      ctx.fillStyle = "#b71c1c";
-      ctx.font = `bold ${Math.round(bodyH * 0.07)}px "Inter", sans-serif`;
       const depText = depOf ? `Dependent of: ${depOf.name}` : `Dependent`;
       ctx.fillText(depText, rightColX, ty);
-      ty += Math.round(bodyH * 0.09);
-      ctx.fillStyle = "#333";
-      ctx.font = `normal ${Math.round(bodyH * 0.065)}px "Inter", sans-serif`;
+      ty += Math.round(bodyH * 0.08);
+    
+  
     }
 
     // subtle watermark inside inner area

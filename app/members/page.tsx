@@ -2,8 +2,6 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { log } from 'console';
-export const runtime = 'nodejs';
 
 export default async function MembersPage() {
   const session = await auth();
@@ -19,10 +17,37 @@ export default async function MembersPage() {
       category: true, company: true
     }
   });
-  console.log(members);
 
   return (
     <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow border">
+          <h3 className="text-lg font-semibold mb-2">Quick Actions</h3>
+          <div className="space-y-2">
+            <Link href="/members/new" className="block text-brand hover:text-brand-dark">
+              Create New Member
+            </Link>
+            <Link href="/cards" className="block text-brand hover:text-brand-dark">
+              Manage Cards
+            </Link>
+            <Link href="/billing" className="block text-brand hover:text-brand-dark">
+              Billing & Invoices
+            </Link>
+            <Link href="/members/bulk" className="block text-brand hover:text-brand-dark">
+              Bulk Import/Update
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow border">
+          <h3 className="text-lg font-semibold mb-2">Statistics</h3>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p>Total Members: <span className="font-semibold">{members.length}</span></p>
+            <p>Active Members: <span className="font-semibold">{members.filter(m => m.status === 'Active').length}</span></p>
+            <p>Pending Members: <span className="font-semibold">{members.filter(m => m.status === 'Pending').length}</span></p>
+          </div>
+        </div>
+      </div>
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Member Management</h1>
         <Link 
@@ -83,34 +108,7 @@ export default async function MembersPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold mb-2">Quick Actions</h3>
-          <div className="space-y-2">
-            <Link href="/members/new" className="block text-brand hover:text-brand-dark">
-              Create New Member
-            </Link>
-            <Link href="/cards" className="block text-brand hover:text-brand-dark">
-              Manage Cards
-            </Link>
-            <Link href="/billing" className="block text-brand hover:text-brand-dark">
-              Billing & Invoices
-            </Link>
-            <Link href="/members/bulk" className="block text-brand hover:text-brand-dark">
-              Bulk Import/Update
-            </Link>
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold mb-2">Statistics</h3>
-          <div className="space-y-2 text-sm text-gray-600">
-            <p>Total Members: <span className="font-semibold">{members.length}</span></p>
-            <p>Active Members: <span className="font-semibold">{members.filter(m => m.status === 'Active').length}</span></p>
-            <p>Pending Members: <span className="font-semibold">{members.filter(m => m.status === 'Pending').length}</span></p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

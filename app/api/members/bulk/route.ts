@@ -12,8 +12,26 @@ export async function POST(req: Request) {
   const text = await file.text();
   const lines = text.split(/\r?\n/).filter(Boolean);
   let inserted = 0;
-  // Expected CSV header:
-  // mainId,name,dob,gender,email,contact,address,idNumber,country,companyName,category,coveragePercent,passportPhotoId,passportPhotoUrl
+
+// const createMemberSchema = z.object({
+//   memberCode: z.string().min(5), // Changed from mainId
+//   name: z.string().min(2),
+//   dob: z.string(),
+//   gender: z.string().min(1),
+//   email: z.string().email().optional(),
+//   contact: z.string().optional(),
+//   address: z.string().min(3, 'Address is required'),
+//   idNumber: z.string().optional(),
+//   country: z.string().optional(),
+//   companyId: z.string().optional().nullable(),
+//   categoryID: z.string(),
+//   passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
+//   dependentProofUrl: z.string().optional().nullable(),
+//   isDependent: z.boolean().default(false),
+//   familyRelationship: z.string().optional().nullable(),
+// });
+
+
   const header = lines[0]?.split(',').map(h => h.trim().toLowerCase()) ?? [];
   const idx = (k: string) => header.indexOf(k);
   for (const line of lines.slice(1)) {
@@ -35,8 +53,7 @@ export async function POST(req: Request) {
         idNumber: cols[idx('idnumber')] || undefined,
         country: cols[idx('country')] || undefined,
         companyName: cols[idx('companyname')] || undefined,
-        category: cols[idx('category')] || 'Basic',
-        coveragePercent: Number(cols[idx('coveragepercent')] || 80),
+        categoryID: cols[idx('category')] || 'Basic',
         passportPhotoId: cols[idx('passportphotoid')] || undefined,
         passportPhotoUrl: cols[idx('passportphotourl')] || undefined
       }

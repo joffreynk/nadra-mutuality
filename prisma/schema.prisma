@@ -205,7 +205,7 @@ model SystemSetting {
   location              String?      
   phoneNumber           String?
   email                  String?
-  logo                     String?
+  logo                   String?
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 }
