@@ -115,6 +115,7 @@ model Member {
   status           String            @default("Active")
   invoices         Invoice[]
   claims           Claim[]
+  endOfSubscription DateTime @default(dbgenerated("DATE_ADD(NOW(), INTERVAL 6 MONTH)"))
   treatments       Treatment[]
   Pharmacysrequests PharmacyRequest[]
   createdAt        DateTime          @default(now())

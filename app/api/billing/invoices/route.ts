@@ -5,11 +5,8 @@ import { prisma } from '@/lib/prisma';
 
 const invoiceSchema = z.object({
   memberId: z.string().nullable().optional(),
-  companyId: z.string().nullable().optional(),
-  periodStart: z.string(),
-  periodEnd: z.string(),
-  amount: z.number().nonnegative()
-}).refine((d) => !(d.memberId && d.companyId), { message: 'Choose either member or company' });
+  period: z.number().nonnegative()
+})
 
 export async function POST(req: Request) {
   const session = await auth();

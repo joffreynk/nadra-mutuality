@@ -9,10 +9,8 @@ type Company = { id: string; name: string; email?: string; phoneNumber?: string;
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const [memberId, setMemberId] = useState('');
   const [companyId, setCompanyId] = useState('');
   const [period, setPeriod] = useState('');
-  const [amount, setAmount] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -38,14 +36,15 @@ export default function NewInvoicePage() {
     setError(null);
     setLoading(true);
     try {
-      const body: any = { period, amount: Number(amount) };
-      if (memberId) body.memberId = memberId;
-      if (companyId) body.companyId = companyId;
+      
 
       const res = await fetch('/api/billing/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+          ids: selectedMembers.map(m => m.id),
+          period: Number(period),
+        }),
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -73,9 +72,9 @@ export default function NewInvoicePage() {
               value={memberSearchQuery}
               onChange={(e) => setMemberSearchQuery(e.target.value)}
             />
-            <select className="w-full border rounded p-2" value={memberId} onChange={(e) => {  (e.target.value); if (e.target.value) setCompanyId(''); }}>
+            <select className="w-full border rounded p-2" onChange={(e) => {  if (e.target.value) setSelectedMembers(members.filter(m => m.id === e.target.value)); }}>
               <option value="">Member</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.mainId}){m.company && ` - ${m.company.name}`}</option>)}
+              {members.map(m => <option key={m.id} value={m.id}>{m.name} {m.company && ` - ${m.company.name}`}</option>)}
             </select>
           </div>
           <div>
@@ -87,7 +86,7 @@ export default function NewInvoicePage() {
               value={companySearchQuery}
               onChange={(e) => setCompanySearchQuery(e.target.value)}
             />
-            <select className="w-full border rounded p-2" value={companyId} onChange={(e) => { setCompanyId(e.target.value); if (e.target.value) setMemberId(''); setSelectedMembers(members.filter(m => m.company?.id === e.target.value)); }}>
+            <select className="w-full border rounded p-2" value={companyId} onChange={(e) => { if (e.target.value) setSelectedMembers(members.filter(m => m.company?.id === e.target.value)); }}>
               <option value="">Company</option>
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
