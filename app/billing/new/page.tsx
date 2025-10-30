@@ -21,7 +21,7 @@ export default function NewInvoicePage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/members?q=${memberSearchQuery}`);
+      const res = await fetch(`/api/billing/members?q=${memberSearchQuery}`);
       if (res.ok) {
         const all = await res.json();
         setMembers(all.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, company: m.company, category: m.category })));

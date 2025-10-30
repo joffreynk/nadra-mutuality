@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+  import { differenceInMonths } from 'date-fns';
 
 const createMemberSchema = z.object({
   memberCode: z.string().min(5), // Changed from mainId
@@ -58,6 +59,15 @@ export async function POST(req: Request) {
       familyRelationship: data.familyRelationship || null,
     }
   });
+  const period = differenceInMonths(member.endOfSubscription, new Date());
+  await prisma.invoice.create({
+    data: {
+      organizationId: session.user.organizationId,
+      memberId: member.id,
+      amount: Number(member.category?.price) * period,
+      period: period,
+    }
+  });
 
   await prisma.auditLog.create({
     data: {
@@ -68,7 +78,6 @@ export async function POST(req: Request) {
       after: member
     }
   });
-
   return NextResponse.json(member);
 }
 
