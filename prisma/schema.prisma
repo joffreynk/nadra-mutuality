@@ -16,7 +16,6 @@ model Organization {
   members          Member[]
   companies        Company[]
   invoices         Invoice[]
-  claims           Claim[]
   auditLogs        AuditLog[]
   documents        Document[]
   systemSetting    SystemSetting?
@@ -114,7 +113,6 @@ model Member {
   company          Company?          @relation(fields: [companyId], references: [id])
   status           String            @default("Active")
   invoices         Invoice[]
-  claims           Claim[]
   endOfSubscription DateTime @default(dbgenerated("DATE_ADD(NOW(), INTERVAL 6 MONTH)"))
   treatments       Treatment[]
   Pharmacysrequests PharmacyRequest[]
@@ -131,10 +129,7 @@ model Invoice {
   organization   Organization @relation(fields: [organizationId], references: [id])
   memberId       String?
   member         Member?      @relation(fields: [memberId], references: [id])
-  companyId      String?
-  company        Company?     @relation(fields: [companyId], references: [id])
-  periodStart    DateTime
-  periodEnd      DateTime
+  period         Int
   amount         Decimal      @db.Decimal(10, 2)
   status         String       @default("Pending")
   createdAt      DateTime     @default(now())
@@ -152,20 +147,6 @@ model Company {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   members        Member[]
-  invoices       Invoice[]
-}
-
-model Claim {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  periodStart    DateTime
-  periodEnd      DateTime
-  state          String       @default("Draft")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  Member         Member?      @relation(fields: [memberId], references: [id])
-  memberId       String?
 }
 
 model AuditLog {
