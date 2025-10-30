@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 export const runtime = 'nodejs';
 import { prisma } from '@/lib/prisma';
+import { bifFormatter } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 export default async function BillingPage() {
   const session = await auth();
@@ -12,12 +14,13 @@ export default async function BillingPage() {
   }
 
   const organizationId = session.user.organizationId;
-  const [pending, overdue, paid, recent] = await Promise.all([
+  const [pending, overdue, paid, amount, recent] = await Promise.all([
     prisma.invoice.count({ where: { organizationId, status: 'Pending' } }),
     prisma.invoice.count({ where: { organizationId, status: 'Overdue' } }),
     prisma.invoice.count({ where: { organizationId, status: 'Paid' } }),
-    prisma.invoice.findMany({ where: { organizationId }, orderBy: { createdAt: 'desc' }, take: 10 })
-  ]);
+    prisma.invoice.findMany({ where: { organizationId, status: 'paid' }, select:{amount: true} }),
+    prisma.invoice.findMany({ where: { organizationId }, orderBy: { createdAt: 'desc' }, take: 10, select: { id: true, member: { select: { name: true } }, period: true, amount: true, status: true } }),
+  ]);  
 
   return (
     <div className="space-y-6">
@@ -38,7 +41,7 @@ export default async function BillingPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-lg shadow border">
           <h3 className="text-lg font-semibold mb-2">Total Revenue</h3>
-          <p className="text-3xl font-bold text-green-600">$0</p>
+          <p className="text-3xl font-bold text-green-600">{bifFormatter.format(amount.reduce((acc:any, curr:any) => acc + Number(curr.amount), 0))}</p>
           <p className="text-sm text-gray-600">This month</p>
         </div>
         <div className="bg-white p-6 rounded-lg shadow border">
@@ -69,20 +72,18 @@ export default async function BillingPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-600 border-b">
-                  <th className="py-2 pr-4">Invoice</th>
                   <th className="py-2 pr-4">Member</th>
-                  <th className="py-2 pr-4">Period</th>
-                  <th className="py-2 pr-4">Amount</th>
+                  <th className="py-2 pr-4">Paid Months</th>
+                  <th className="py-2 pr-4">Total</th>
                   <th className="py-2 pr-4">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {recent.map(inv => (
+                {recent.map((inv:any) => (
                   <tr key={inv.id} className="border-b last:border-0">
-                    <td className="py-2 pr-4">{inv.id.slice(0, 8)}</td>
-                    <td className="py-2 pr-4">{inv.memberId ?? '-'}</td>
-                    <td className="py-2 pr-4">{new Date(inv.periodStart).toLocaleDateString()} – {new Date(inv.periodEnd).toLocaleDateString()}</td>
-                    <td className="py-2 pr-4">${inv.amount.toString()}</td>
+                    <td className="py-2 pr-4">{inv?.member?.name}</td>
+                    <td className="py-2 pr-4">{inv.period ?? '-'} </td>
+                    <td className="py-2 pr-4">{bifFormatter.format(inv.amount)}</td>
                     <td className="py-2 pr-4">{inv.status}</td>
                   </tr>
                 ))}
@@ -114,7 +115,7 @@ export default async function BillingPage() {
         <div className="bg-white p-6 rounded-lg shadow border">
           <h3 className="text-lg font-semibold mb-2">Billing Statistics</h3>
           <div className="space-y-2 text-sm text-gray-600">
-            <p>Invoices Created Today: <span className="font-semibold">{recent.filter(r => new Date(r.createdAt).toDateString() === new Date().toDateString()).length}</span></p>
+            <p>Invoices Created Today: <span className="font-semibold">{recent.filter((r:any) => new Date(r.createdAt).toDateString() === new Date().toDateString()).length}</span></p>
             <p>Total Outstanding: <span className="font-semibold">$0</span></p>
             <p>Average Payment Time: <span className="font-semibold">-</span></p>
             <p>Collection Rate: <span className="font-semibold">-</span></p>

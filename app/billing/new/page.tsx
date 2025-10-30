@@ -35,14 +35,25 @@ export default function NewInvoicePage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    try {
-      
 
+    if (selectedMembers.length === 0) {
+      setError('Please select at least one member or company.');
+      setLoading(false);
+      return;
+    }
+
+    if (period.length === 0) {
+      setError('Please enter a billing period.');
+      setLoading(false);
+      return;
+    }
+
+    try {
       const res = await fetch('/api/billing/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ids: selectedMembers.map(m => m.id),
+          ids: selectedMembers.map(m => ({ memberId: m.id, amount: m.category?.price! * Number(period) })),
           period: Number(period),
         }),
       });
@@ -106,7 +117,7 @@ export default function NewInvoicePage() {
 
         {selectedMembers.length > 0 && (
           <Table>
-            <TableCaption>A list of members from {companyId ? companies.find(c => c.id === companyId)?.name : 'all companies'}.</TableCaption>
+            <TableCaption>A list of  {companyId ? `members from ${companies.find(c => c.id === companyId)?.name}` : 'all members'}.</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead className="">Name</TableHead>
