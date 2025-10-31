@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { addMonths } from 'date-fns';
-import { stat } from 'fs';
 
 
 const invoiceLineItemSchema = z.object({
@@ -39,9 +38,18 @@ export async function POST(req: Request) {
     }
   });
 
-  if (invoice.ok){
+  if (invoice){
     await prisma.member.updateMany({
-      where: {memberCode: { startsWith: member.memberCode }},
+      where: {
+        OR: [
+      {
+        memberCode: { equals: member.memberCode }
+      },
+      {
+        memberCode: { startsWith: member.memberCode.concat('/') }
+      }
+    ]
+      },
       data: {status: 'active', endOfSubscription: addMonths(new Date(), invoice.period)}
     })
   }

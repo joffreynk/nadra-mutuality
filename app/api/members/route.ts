@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-  import { differenceInMonths } from 'date-fns';
+  import { addMonths, differenceInMonths } from 'date-fns';
 
 const createMemberSchema = z.object({
   memberCode: z.string().min(5), // Changed from mainId
@@ -38,6 +38,15 @@ export async function POST(req: Request) {
   if (data.isDependent && !data.familyRelationship) {
     return NextResponse.json({ error: 'Relationship is required for dependent members' }, { status: 400 });
   }
+  let mainMember = null;
+  if(data.isDependent){
+    mainMember = await prisma.member.findUnique({
+      where: { memberCode: data.memberCode.split('/')[0] }
+    });
+    if(!mainMember){
+      return NextResponse.json({ error: 'Main member not found for dependent' }, { status: 404 });
+    }
+  }
 
   const member = await prisma.member.create({
     data: {
@@ -57,18 +66,28 @@ export async function POST(req: Request) {
       categoryID: data.categoryID,
       isDependent: data.isDependent,
       familyRelationship: data.familyRelationship || null,
+      endOfSubscription: data.isDependent && mainMember ? mainMember.endOfSubscription : addMonths(new Date(), 6),
+      status: data.isDependent && mainMember ? mainMember.status : 'inactive',
     }
   });
+  if (!member) return NextResponse.json({ error: 'Failed to create member' }, { status: 500 });
+
   const period = differenceInMonths(member.endOfSubscription, new Date());
-  await prisma.invoice.create({
+
+  
+  if(!data.isDependent){
+    const category = await prisma.category.findUnique({
+      where: { id: data.categoryID }
+    });
+    await prisma.invoice.create({
     data: {
       organizationId: session.user.organizationId,
       memberId: member.id,
-      amount: Number(member.category?.price) * period,
+      amount: Number(category?.price!) * period,
       period: period,
     }
   });
-
+  }
   await prisma.auditLog.create({
     data: {
       organizationId,
