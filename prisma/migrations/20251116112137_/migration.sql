@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `member` MODIFY `endOfSubscription` DATETIME(3) NOT NULL DEFAULT DATE_ADD(NOW(), INTERVAL 6 MONTH);

@@ -30,7 +30,6 @@ export default function NewMemberPage() {
   const [currentMember, setCurrentMember] = useState<SimpleMember | null>(null);
   const [parentMemberSearchQuery, setParentMemberSearchQuery] = useState('');
   const [passportFile, setPassportFile] = useState<File | null>(null);
-  const [dependentProof, setDependentProof] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
 
   const [parents, setParents] = useState<SimpleMember[]>([]);
@@ -100,7 +99,6 @@ useEffect(() => {
     setLoading(true); // Set loading to true on submission
 
     try {
-      let dependentProofUrl = '';
       let passportPhotoUrl = '';
 
       // Handle passport photo first to ensure data is available for validation
@@ -113,22 +111,6 @@ useEffect(() => {
         passportPhotoUrl = upj.url;
       } else {
         throw new Error('Passport photo is required');
-      }
-
-      if (isDependent) {
-        if (dependentProof) {
-          const fd = new FormData();
-          fd.append('file', dependentProof);
-          const dp = await fetch('/api/uploads', { method: 'POST', body: fd });
-          if (!dp.ok) throw new Error('Dependent proof upload failed');
-          const dpj = await dp.json();
-          dependentProofUrl = dpj.url;
-         
-        } else {
-          throw new Error('Dependent proof is required for dependent members');
-        }
-        if (!parentMemberId) throw new Error('Parent member is required for dependent members');
-        if (!form.familyRelationship) throw new Error('Family relationship is required for dependent members');
       }
 
       const payload = {
@@ -144,7 +126,6 @@ useEffect(() => {
         companyId: form.companyId || null,
         categoryID: form.categoryID,
         passportPhotoUrl: passportPhotoUrl,
-        dependentProofUrl: dependentProofUrl || null,
         isDependent: isDependent,
         familyRelationship: isDependent ? form.familyRelationship : null, // Conditionally include familyRelationship
         parentMemberId: isDependent ? parentMemberId : null, // Conditionally include parentMemberId
@@ -164,7 +145,6 @@ useEffect(() => {
         companyId: z.string().optional().nullable(),
         categoryID: z.string().min(1, 'Category is required'),
         passportPhotoUrl: z.string().min(5, 'Passport photo is required'),
-        dependentProofUrl: z.string().optional().nullable(),
         isDependent: z.boolean(),
         familyRelationship: z.string().optional().nullable(),
         parentMemberId: z.string().optional().nullable(),
@@ -214,7 +194,6 @@ useEffect(() => {
       setIsDependent(false);
       setParentMemberId('');
       setPassportFile(null);
-      setDependentProof(null);
       setSelectedCompanyId(null);
       setCompanySearchQuery('');
       await fetchData(); // Refresh data
@@ -360,13 +339,6 @@ useEffect(() => {
             <label className="block text-sm font-medium">Passport Photo</label>
             <input type="file" accept="image/*" className="mt-1 w-full border rounded p-2" onChange={(e) => setPassportFile(e.target.files?.[0] ?? null)} required />
           </div>
-          {isDependent && (
-            <div>
-              <label className="block text-sm font-medium">Dependent Proof (PDF)</label>
-              <input type="file" accept="application/pdf" className="mt-1 w-full border rounded p-2" onChange={(e) => setDependentProof(e.target.files?.[0] ?? null)} required={isDependent && !dependentProof} />
-              <p className="text-xs text-gray-500 mt-1">Spouse: marriage certificate; Child: birth/adoption certificate.</p>
-            </div>
-          )}
         </div>
         <div>
           <label className="block text-sm font-medium">Address</label>

@@ -17,7 +17,6 @@ const createMemberSchema = z.object({
   companyId: z.string().optional().nullable(),
   categoryID: z.string(),
   passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
-  dependentProofUrl: z.string().optional().nullable(),
   isDependent: z.boolean().default(false),
   familyRelationship: z.string().optional().nullable(),
 });
@@ -62,7 +61,6 @@ export async function POST(req: Request) {
       country: data.country,
       companyId: data.companyId,
       passportPhotoUrl: data.passportPhotoUrl,
-      dependentProofUrl: data.dependentProofUrl,
       categoryID: data.categoryID,
       isDependent: data.isDependent,
       familyRelationship: data.familyRelationship || null,

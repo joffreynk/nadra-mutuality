@@ -25,8 +25,9 @@ export async function GET(req: Request) {
   if (!members) return NextResponse.json({ error: 'No members found' }, { status: 404 });
   return NextResponse.json(members.map((m: any) => ({
     name: m.name, memberCode: m.memberCode,id: m.id,
-    include: { company: { select: { id: true, name: true } }},
-    category: { select: { id: true, name: true, coveragePercent: true, price: true } },
+    company: m.company ? { id: m.company.id, name: m.company.name } : null,
+    category: m.category ? { id: m.category.id, name: m.category.name, coveragePercent: m.category.coveragePercent, price: m.category.price } : null,
+     
   })));
 }
 

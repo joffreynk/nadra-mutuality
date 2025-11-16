@@ -98,15 +98,14 @@ model Member {
   organization     Organization      @relation(fields: [organizationId], references: [id])
   memberCode       String            @unique
   name             String
-  dob              DateTime
-  contact          String? // phone
+  dob              DateTime?
+  contact          String?
   email            String?
-  address          String
+  address          String?
   idNumber         String?
   passportPhotoUrl String?
-  dependentProofUrl String?
   isDependent      Boolean           @default(false)
-  familyRelationship     String? // Added for dependent members
+  familyRelationship     String?
   gender           String?
   country          String?
   companyId        String?
