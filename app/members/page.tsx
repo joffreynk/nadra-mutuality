@@ -18,6 +18,7 @@ export default async function MembersPage() {
     }
   });
 
+
   return (
     <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -65,8 +66,7 @@ export default async function MembersPage() {
       <div className="bg-white p-6 rounded-lg shadow border">
         <h2 className="text-xl font-semibold mb-4">Member List</h2>
         <form action="/members" method="get" className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input name="q" placeholder="Type name, Main ID or Company" className="border rounded p-2" />
-          <input name="company" placeholder="Filter by Company" className="border rounded p-2" />
+          <input name="q" placeholder="Type name, Main ID " className="border rounded p-2" />
           <button className="border rounded p-2">Search</button>
         </form>
         {members.length === 0 ? (

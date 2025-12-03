@@ -3,26 +3,27 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-const updateSchema = z.object({
+const updateSchema  = z.object({
   name: z.string().min(2),
-  dob: z.string().optional(),
-  gender: z.string().optional(),
+  dob: z.string(),
+  gender: z.string().min(1),
   email: z.string().email().optional(),
   contact: z.string().optional(),
   address: z.string().min(3, 'Address is required'),
   idNumber: z.string().optional(),
   country: z.string().optional(),
-  companyName: z.string().optional(),
-  categoryID: z.string().min(4, 'Category ID is required'),
-  passportPhotoId: z.string().optional(),
-  passportPhotoUrl: z.string().min(3).optional(),
-  dependentProofUrl: z.string().optional().nullable(), // Add this line
-  isDependent: z.boolean().optional(), // Add this line
-  relationship: z.string().optional(), // Add this line
-  status: z.string().optional()
+  companyId: z.string().optional().nullable(),
+  categoryID: z.string(),
+  passportPhotoUrl: z.string().min(5, 'Passport photo URL is required'),
+  isDependent: z.boolean().default(false),
+  familyRelationship: z.string().optional().nullable(),
+  status: z.string().optional(),
 });
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
+
+  const {id} = await params;
+  
 
   const session = await auth();
   
@@ -37,6 +38,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   delete json.memberCode;
   delete json.id;
 
+  console.log(json);
+  
+
   const parsed = updateSchema.safeParse(json );
 
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
@@ -44,16 +48,16 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const data = parsed.data;
 
 
-    if (data.isDependent && !data.relationship) {
+    if (data.isDependent && !data.familyRelationship) {
       // Check if isDependent is explicitly set to true and relationship is missing
       return NextResponse.json({ error: 'Relationship is required for dependent members' }, { status: 400 });
     }
   }
 
-  const before = await prisma.member.findFirst({ where: { id: params?.id, organizationId } });
+  const before = await prisma.member.findFirst({ where: { id, organizationId } });
   if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (!before.isDependent){
-    const updated = await prisma.member.update({ where: { id: params?.id }, data: { ...parsed.data, dob: parsed.data.dob ? new Date(parsed.data.dob) : undefined } });
+    const updated = await prisma.member.update({ where: { id }, data: { ...parsed.data, dob: parsed.data.dob ? new Date(parsed.data.dob) : undefined } });
     await prisma.member.updateMany({ where: { organizationId, memberCode: {startsWith: updated.memberCode.concat('/') } }, data: { categoryID: updated.categoryID, companyId: updated.companyId } });
     await prisma.auditLog.create({ data: { organizationId, userId: session.user.id, action: 'member_update', entityType: 'Member', entityId: updated.id, before, after: updated } });
     return NextResponse.json(updated);
@@ -61,7 +65,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (before.categoryID !== parsed.data.categoryID) {
       return NextResponse.json({ error: 'Cannot change category of a dependent member' }, { status: 400 });
     }else {
-      const updated = await prisma.member.update({ where: { id: params?.id }, data: { ...parsed.data, dob: parsed.data.dob ? new Date(parsed.data.dob) : undefined } });
+      const updated = await prisma.member.update({ where: { id }, data: { ...parsed.data, dob: parsed.data.dob ? new Date(parsed.data.dob) : undefined } });
       await prisma.auditLog.create({ data: { organizationId, userId: session.user.id, action: 'member_update', entityType: 'Member', entityId: updated.id, before, after: updated } });
       return NextResponse.json(updated);
     }

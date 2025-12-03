@@ -20,3 +20,23 @@ export async function GET(_req: Request, { params }: { params: { name: string } 
     return NextResponse.json({ error: e?.message ?? 'Not found' }, { status: 404 });
   }
 }
+
+import { deleteFileByUrl } from '@/lib/uploads';
+
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const url = body?.url;
+    if (!url || typeof url !== 'string') {
+      return NextResponse.json({ error: 'Missing "url" in request body' }, { status: 400 });
+    }
+
+    const result = await deleteFileByUrl(url);
+    if (result.deleted) {
+      return NextResponse.json({ ok: true, filepath: result.filepath });
+    }
+    return NextResponse.json({ ok: false, message: 'File not found', filepath: result.filepath }, { status: 404 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
+  }
+}

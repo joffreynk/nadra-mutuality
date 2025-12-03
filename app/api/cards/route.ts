@@ -262,9 +262,18 @@ export async function POST(req: Request) {
     let ty = bodyTop + Math.round(bodyH * 0.18);
     ctx.textAlign = "left";
     ctx.fillStyle = "#111";
-    ctx.font = `bold ${Math.round(bodyH * 0.12)}px "Inter", sans-serif`;
-    ctx.fillText(member.name ?? "Unknown", rightColX, ty);
-    ty += Math.round(bodyH * 0.12) + 6;
+    ctx.font = `bold ${Math.round(bodyH * 0.09)}px "Inter", sans-serif`;
+    if (member.name.length > 20) {
+      const index = member.name.indexOf(" ");
+      ctx.fillText(member.name.substring(0, index) ?? "Unknown", rightColX, ty);
+      ty += Math.round(bodyH * 0.1) + 3;
+      ctx.fillText(member.name.substring(index + 1) ?? "Unknown", rightColX, ty);
+      ty += Math.round(bodyH * 0.1) + 3;
+    }else{
+      ctx.fillText(member.name ?? "Unknown", rightColX, ty);
+      ty += Math.round(bodyH * 0.1) + 3;
+    }
+    
 
     ctx.font = `normal ${Math.round(bodyH * 0.065)}px "Inter", sans-serif`;
     ctx.fillStyle = "#333";
