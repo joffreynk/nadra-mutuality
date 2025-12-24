@@ -1,7 +1,9 @@
 "use client";
 
 import { Decimal } from "@prisma/client/runtime/library";
+import Image from "next/image";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+
 
 type Member = {
   id: string;
@@ -105,7 +107,6 @@ export default function CardGeneratorClient() {
 
   function handleSelect(member: Member) {
     setSelected(member);
-    // auto-generate when a member is selected
     generateCardFor(member);
   }
 
@@ -161,7 +162,9 @@ export default function CardGeneratorClient() {
                       {m.passportPhotoUrl ? (
                         // plain <img> — expects public paths or full URLs
                         // Next/Image avoided for simplicity inside a client component
-                        <img
+                        <Image
+                        width={300}
+                        height={300}
                           src={m.passportPhotoUrl}
                           alt={`${m.name} avatar`}
                           className="w-full h-full object-cover"

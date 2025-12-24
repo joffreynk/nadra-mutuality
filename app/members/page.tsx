@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default async function MembersPage() {
   const session = await auth();
@@ -78,6 +79,7 @@ export default async function MembersPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-600 border-b">
+                  <th className="py-2 pr-4">Photo</th>
                   <th className="py-2 pr-4">Name</th>
                   <th className="py-2 pr-4">ID</th>
                   <th className="py-2 pr-4">Company</th>
@@ -90,6 +92,21 @@ export default async function MembersPage() {
               <tbody>
                 {members.map((m) => (
                   <tr key={m.id} className="border-b last:border-0">
+                    <td >
+                     <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
+                        {m.passportPhotoUrl ? (
+                          <Image
+                          width={50}
+                          height={50}
+                            src={m.passportPhotoUrl}
+                            alt={`${m.name} avatar`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Photo</div>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-2 pr-4">{m.name}</td>
                     <td className="py-2 pr-4">{m.memberCode}</td>
                     <td className="py-2 pr-4">{m.company?.name ?? '-'}</td>

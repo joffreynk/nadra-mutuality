@@ -3,8 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { z } from "zod";
-import { on } from "events";
+import { nullable, z } from "zod";
 
 const validationSchema = z.object({
   memberCode: z.string().min(1).optional(),
@@ -146,6 +145,12 @@ export default function EditMemberClient() {
       // Client-side validation using zod
       validationSchema.parse(payload);
 
+      
+      if(payload.companyId==='Select...'){
+        payload.compcompanyId = null;
+      }
+      console.log(payload);
+      
       // Send update to server
       const res = await fetch(`/api/members/${memberId}`, {
         method: "PUT",
@@ -251,7 +256,7 @@ export default function EditMemberClient() {
             <div>
               <label className="block text-sm font-medium">Company</label>
               <select name="companyId" value={formState.companyId} onChange={onChange} className="mt-1 w-full border rounded p-2">
-                <option value="">Select...</option>
+                <option>Select...</option>
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}

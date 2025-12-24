@@ -6,8 +6,9 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 
-const WIDTH = 1012;
-const HEIGHT = 640;
+const WIDTH = 1004;
+const HEIGHT = 650;
+
 const prisma = new PrismaClient();
 
 // fonts (optional)
@@ -164,13 +165,13 @@ export async function POST(req: Request) {
     const footerX = innerX + innerMargin;
     const footerY = innerY + innerH - innerMargin - footerH;
     const footerW = headerW;
-    ctx.fillStyle = "#adadadff";
+    ctx.fillStyle = "#f70202ff";
     ctx.fillRect(footerX, footerY, footerW, footerH);
 
     const footerPadding = Math.round(footerW * 0.04);
     ctx.fillStyle = "#ffffff";
-    const footerFontSize = Math.round(footerH * 0.32);
-    ctx.font = `normal ${footerFontSize}px "Inter", sans-serif`;
+    const footerFontSize = Math.round(footerH * 0.3);
+    ctx.font = `bold ${footerFontSize}px "Inter", sans-serif`;
     const footerTextY = footerY + Math.round(footerH * 0.6);
 
     // left: location (WORKING_ADDRESS), center: email, right: phone
@@ -273,7 +274,6 @@ export async function POST(req: Request) {
       ctx.fillText(member.name ?? "Unknown", rightColX, ty);
       ty += Math.round(bodyH * 0.1) + 3;
     }
-    
 
     ctx.font = `normal ${Math.round(bodyH * 0.065)}px "Inter", sans-serif`;
     ctx.fillStyle = "#333";
@@ -295,8 +295,6 @@ export async function POST(req: Request) {
       const depText = depOf ? `Dependent of: ${depOf.name}` : `Dependent`;
       ctx.fillText(depText, rightColX, ty);
       ty += Math.round(bodyH * 0.08);
-    
-  
     }
 
     // subtle watermark inside inner area

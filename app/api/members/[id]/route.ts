@@ -37,10 +37,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   delete json.organizationId;
   delete json.memberCode;
   delete json.id;
-
-  console.log(json);
   
-
   const parsed = updateSchema.safeParse(json );
 
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
@@ -56,6 +53,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const before = await prisma.member.findFirst({ where: { id, organizationId } });
   if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  
   if (!before.isDependent){
     const updated = await prisma.member.update({ where: { id }, data: { ...parsed.data, dob: parsed.data.dob ? new Date(parsed.data.dob) : undefined } });
     await prisma.member.updateMany({ where: { organizationId, memberCode: {startsWith: updated.memberCode.concat('/') } }, data: { categoryID: updated.categoryID, companyId: updated.companyId } });
