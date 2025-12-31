@@ -3,22 +3,30 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: [
       'react',
-      'react-dom'
+      'react-dom',
+      '@prisma/client'
     ]
   },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.cloudinary.com' }
-    ]
+    ],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
   },
   eslint: {
     ignoreDuringBuilds: false
   },
   typescript: {
     ignoreBuildErrors: false
-  }
+  },
+  // Performance optimizations
+  compress: true,
+  poweredByHeader: false,
+  reactStrictMode: true,
+  swcMinify: true,
+  // Optimize fonts
+  optimizeFonts: true,
 };
 
 module.exports = nextConfig;
-
-

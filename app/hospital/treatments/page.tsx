@@ -69,7 +69,8 @@ export default function AdminTreatments() {
   }
 
   async function load() {
-    setError(null); setLoading(true);
+    setError(null); 
+    setLoading(true);
     try {
       const params: any = {};
       if (query) params.q = query;
@@ -79,11 +80,18 @@ export default function AdminTreatments() {
       const url = buildUrl('/api/hospital/treatments', params);
       const data = await fetchJson(url);
       setTreatments(Array.isArray(data) ? data : []);
-    } catch (e: any) { setError(e.message || String(e)); }
-    finally { setLoading(false); }
+    } catch (e: any) { 
+      setError(e.message || String(e)); 
+    }
+    finally { 
+      setLoading(false); 
+    }
   }
 
-  useEffect(() => { loadHospitals(); load(); }, []);
+  useEffect(() => { 
+    loadHospitals(); 
+    load(); 
+  }, []);
 
   const rows = useMemo(() => treatments.map(t => ({
     id: t.id,
@@ -97,61 +105,132 @@ export default function AdminTreatments() {
   })), [treatments]);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="w-full p-2 sm:p-4 space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl font-semibold">Treatments</h1>
+        <Link 
+          href="/hospital/treatments/new" 
+          className="w-full sm:w-auto bg-brand text-white px-4 py-2 rounded hover:bg-brand-dark text-center text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+        >
+          New Treatment
+        </Link>
+      </div>
+      
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-2">
-          <Input placeholder="Search by member, code, or treatment id" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select value={hospitalId} onChange={e => setHospitalId(e.target.value)} className="border rounded px-2 py-1">
+        <CardContent className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 p-3 sm:p-4">
+          <Input 
+            placeholder="Search by member, code, or treatment id" 
+            value={query} 
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1 min-w-[200px] text-sm sm:text-base"
+          />
+          <select 
+            value={hospitalId} 
+            onChange={e => setHospitalId(e.target.value)} 
+            className="border rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
             <option value="">All hospitals</option>
             {hospitals.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
-          <label className="text-sm">Start</label>
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border rounded px-2 py-1" />
-          <label className="text-sm">End</label>
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border rounded px-2 py-1" />
-          <Button onClick={load}>Apply</Button>
-          <Button variant="secondary" onClick={() => { setQuery(''); setHospitalId(''); setStartDate(''); setEndDate(''); load(); }}>Clear</Button>
+          <label className="text-xs sm:text-sm text-gray-600">Start</label>
+          <input 
+            type="date" 
+            value={startDate} 
+            onChange={e => setStartDate(e.target.value)} 
+            className="border rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <label className="text-xs sm:text-sm text-gray-600">End</label>
+          <input 
+            type="date" 
+            value={endDate} 
+            onChange={e => setEndDate(e.target.value)} 
+            className="border rounded px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <Button onClick={load} disabled={loading} className="text-sm sm:text-base">
+            {loading ? 'Loading…' : 'Apply'}
+          </Button>
+          <Button 
+            variant="secondary" 
+            onClick={() => { 
+              setQuery(''); 
+              setHospitalId(''); 
+              setStartDate(''); 
+              setEndDate(''); 
+              load(); 
+            }}
+            className="text-sm sm:text-base"
+          >
+            Clear
+          </Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent>
-          <h3 className="text-lg font-semibold mb-2">Treatments (Admin)</h3>
+        <CardContent className="p-3 sm:p-4">
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Treatments</h3>
           {loading && <div className="text-sm text-gray-500">Loading…</div>}
-          {error && <div className="text-sm text-red-600">{error}</div>}
+          {error && <div className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</div>}
 
-          <div className="overflow-auto mt-2">
-            <table className="w-full table-auto border-collapse">
+          <div className="overflow-x-auto mt-2">
+            <table className="w-full table-auto border-collapse text-xs sm:text-sm">
               <thead>
-                <tr className="text-left text-sm text-gray-600">
+                <tr className="text-left text-gray-600 border-b bg-gray-50">
                   <th className="p-2">Date</th>
                   <th className="p-2">Treatment ID</th>
                   <th className="p-2">Member</th>
-                  <th className="p-2">Hospital</th>
+                  <th className="p-2 hidden sm:table-cell">Hospital</th>
                   <th className="p-2"># Items</th>
                   <th className="p-2">Total</th>
                   <th className="p-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 && (
-                  <tr><td className="p-4 text-sm text-gray-500" colSpan={8}>No treatments found.</td></tr>
+                {rows.length === 0 && !loading && (
+                  <tr><td className="p-4 text-sm text-gray-500 text-center" colSpan={7}>No treatments found.</td></tr>
                 )}
                 {rows.map(r => (
-                  <tr key={r.id} className="border-t">
-                    <td className="p-2 align-top text-sm">{r.date}</td>
-                    <td className="p-2 align-top text-sm">{r.id}</td>
-                    <td className="p-2 align-top text-sm">
-                      <div>{r.member}</div>
+                  <tr key={r.id} className="border-t hover:bg-gray-50 transition-colors">
+                    <td className="p-2 align-top">{r.date}</td>
+                    <td className="p-2 align-top font-mono text-xs">{r.id.slice(0, 8)}</td>
+                    <td className="p-2 align-top">
+                      <div className="font-medium">{r.member}</div>
                       <div className="text-xs text-gray-500">{r.memberCode}</div>
                     </td>
-                    <td className="p-2 align-top text-sm">{r?.user?.name ?? '—'}</td>
-                    <td className="p-2 align-top text-sm">{r.items}</td>
-                    <td className="p-2 align-top text-sm">{r.total.toFixed(2)}</td>
-                    <td className="p-2 align-top text-sm">
-                      <div className="flex gap-2">
-                        <Button onClick={async () => { try { const payload = await fetchJson(`/api/hospital/treatments/${r.id}`); setSelected(payload); } catch (err:any) { setError(err.message || String(err)); } }}>View</Button>
-                        <Button variant="destructive" onClick={async () => { if (!confirm('Delete this treatment?')) return; try { await fetchJson(`/api/hospital/treatments/${r.id}`, { method: 'DELETE' }); setTreatments(prev => prev.filter(t => t.id !== r.id)); } catch (err:any) { setError(err.message || String(err)); } }}>Delete</Button>
+                    <td className="p-2 align-top hidden sm:table-cell">{r?.user?.name ?? '—'}</td>
+                    <td className="p-2 align-top">{r.items}</td>
+                    <td className="p-2 align-top font-semibold">{r.total.toFixed(2)}</td>
+                    <td className="p-2 align-top">
+                      <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                        <Button 
+                          size="sm"
+                          onClick={async () => { 
+                            try { 
+                              const payload = await fetchJson(`/api/hospital/treatments/${r.id}`); 
+                              setSelected(payload); 
+                            } catch (err:any) { 
+                              setError(err.message || String(err)); 
+                            } 
+                          }}
+                          className="text-xs"
+                        >
+                          View
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={async () => { 
+                            if (!confirm('Delete this treatment?')) return; 
+                            try { 
+                              await fetchJson(`/api/hospital/treatments/${r.id}`, { method: 'DELETE' }); 
+                              setTreatments(prev => prev.filter(t => t.id !== r.id)); 
+                            } catch (err:any) { 
+                              setError(err.message || String(err)); 
+                            } 
+                          }}
+                          className="text-xs"
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -164,13 +243,19 @@ export default function AdminTreatments() {
 
       {servicesForMember && (
         <Dialog open={true} onOpenChange={(open) => { if (!open) setServicesForMember(null); }}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <h3 className="text-lg font-semibold">Services for member</h3>
-            <div className="mt-2">
-              <table className="w-full table-auto">
-                <thead><tr className="text-xs text-gray-600"><th className="p-1">Service</th><th className="p-1">Qty</th><th className="p-1">Amount</th></tr></thead>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full table-auto text-xs sm:text-sm">
+                <thead><tr className="text-xs text-gray-600 border-b"><th className="p-1">Service</th><th className="p-1">Qty</th><th className="p-1">Amount</th></tr></thead>
                 <tbody>
-                  {servicesForMember.map(s => (<tr key={s.name}><td className="p-1 text-sm">{s.name}</td><td className="p-1 text-sm">{s.qty}</td><td className="p-1 text-sm">{s.amount.toFixed(2)}</td></tr>))}
+                  {servicesForMember.map(s => (
+                    <tr key={s.name} className="border-b">
+                      <td className="p-1">{s.name}</td>
+                      <td className="p-1">{s.qty}</td>
+                      <td className="p-1">{s.amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -181,31 +266,45 @@ export default function AdminTreatments() {
 
       {selected && (
         <Dialog open={true} onOpenChange={(open) => { if (!open) setSelected(null); }}>
-             <DialogTitle>Member: {selected.member?.name ?? '—'}</DialogTitle>
-          <DialogContent>
+          <DialogTitle>Member: {selected.member?.name ?? '—'}</DialogTitle>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold">Treatment {selected.id}</h3>
-            <div className="mt-2">
-              <div className="text-sm text-gray-600">Member: {selected.member?.name ?? '—'}</div>
-              <div className="text-sm text-gray-600">Created: {selected.createdAt ? new Date(selected.createdAt).toLocaleString() : '—'}</div>
+            <div className="mt-2 space-y-1 text-sm text-gray-600">
+              <div>Member: {selected.member?.name ?? '—'}</div>
+              <div>Created: {selected.createdAt ? new Date(selected.createdAt).toLocaleString() : '—'}</div>
             </div>
             <div className="mt-4">
               <h4 className="font-medium">Items</h4>
-              <table className="w-full table-auto mt-2">
-                <thead><tr className="text-xs text-gray-600"><th className="p-1">Name</th><th className="p-1">Qty</th><th className="p-1">Unit</th><th className="p-1">Amount</th></tr></thead>
-                <tbody>
-                  {selected.treatments?.map(it => (<tr key={it.id}><td className="p-1 text-sm">{it.treatmentName}</td><td className="p-1 text-sm">{it.quantity}</td><td className="p-1 text-sm">{Number(it.unitPrice).toFixed(2)}</td><td className="p-1 text-sm">{(Number(it.unitPrice) * (it.quantity || 1)).toFixed(2)}</td></tr>))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto mt-2">
+                <table className="w-full table-auto text-xs sm:text-sm">
+                  <thead><tr className="text-xs text-gray-600 border-b"><th className="p-1">Name</th><th className="p-1">Qty</th><th className="p-1">Unit</th><th className="p-1">Amount</th></tr></thead>
+                  <tbody>
+                    {selected.treatments?.map(it => (
+                      <tr key={it.id} className="border-b">
+                        <td className="p-1">{it.treatmentName}</td>
+                        <td className="p-1">{it.quantity}</td>
+                        <td className="p-1">{Number(it.unitPrice).toFixed(2)}</td>
+                        <td className="p-1">{(Number(it.unitPrice) * (it.quantity || 1)).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="mt-4 flex gap-2">
-              {selected.receiptUrl && <a className="text-blue-700 underline" href={selected.receiptUrl} target="_blank" rel="noreferrer">Open receipt</a>}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {selected.receiptUrl && (
+                <a className="text-blue-700 underline text-sm" href={selected.receiptUrl} target="_blank" rel="noreferrer">
+                  Open receipt
+                </a>
+              )}
               <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
-              <Link href={`/hospital/treatments/${selected.id}`} className="text-blue-700 underline">Edit</Link>
+              <Link href={`/hospital/treatments/${selected.id}`} className="text-blue-700 underline text-sm">
+                Edit
+              </Link>
             </div>
           </DialogContent>
         </Dialog>
       )}
-
     </div>
   );
 }

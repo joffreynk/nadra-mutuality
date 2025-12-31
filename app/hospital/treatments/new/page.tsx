@@ -71,23 +71,47 @@ export default function TreatmentsClient() {
 
   // member search (simple fetch with debounce)
   const fetchData = async () => {
-    const url = memberQuery ? `/api/members?q=${encodeURIComponent(memberQuery)}` : '/api/members';
-    const mres = await fetch(url);
-    if (mres.ok) {
-      const newmembers = await mres.json();
-      setMembers(newmembers.map((m: any) => ({ id: m.id, name: m.name, memberCode: m.memberCode, coveragePercent: m.coveragePercent })));
+    try {
+      setMembersError(null);
+      const url = memberQuery ? `/api/members?q=${encodeURIComponent(memberQuery)}` : '/api/members';
+      const mres = await fetch(url);
+      if (mres.ok) {
+        const newmembers = await mres.json();
+        setMembers(newmembers.map((m: any) => ({ 
+          id: m.id, 
+          name: m.name, 
+          memberCode: m.memberCode, 
+          coveragePercent: m.category?.coveragePercent ?? m.coveragePercent ?? 0 
+        })));
+      } else {
+        const errorData = await mres.json().catch(() => ({ error: 'Failed to fetch members' }));
+        setMembersError(errorData.error || 'Failed to fetch members');
+        setMembers([]);
+      }
+    } catch (err: any) {
+      setMembersError(err.message || 'Error fetching members');
+      setMembers([]);
     }
 
-    const code = await fetch('/api/hospital/code');
-    if (code.ok) {
-      const newCode = await code.json();
-      setCode(newCode);
+    // Fetch code separately
+    try {
+      const code = await fetch('/api/hospital/code');
+      if (code.ok) {
+        const newCode = await code.json();
+        setCode(newCode);
+      }
+    } catch (err) {
+      // Silently fail for code fetch
     }
   };
 
   useEffect(() => {
     const id = window.setTimeout(() => {
-      fetchData();
+      if (memberQuery.trim() || memberQuery === '') {
+        fetchData();
+      } else {
+        setMembers([]);
+      }
     }, 350);
     return () => clearTimeout(id);
   }, [memberQuery]);
@@ -157,7 +181,10 @@ export default function TreatmentsClient() {
             <Input placeholder="Search member by name/code..." value={memberQuery} onChange={e => setMemberQuery(e.target.value)} />
             <Button variant="secondary" onClick={() => { setMemberQuery(''); setMembers([]); setMembersError(null); }}>Clear</Button>
           </div>
-          {membersError && <div className="text-sm text-red-600">{membersError}</div>}
+          {membersError && <div className="text-sm text-red-600 bg-red-50 p-2 rounded">{membersError}</div>}
+          {memberQuery && members.length === 0 && !membersError && (
+            <div className="text-sm text-gray-500 p-2">No members found matching "{memberQuery}"</div>
+          )}
           {members.length > 0 && (
             <div className="border rounded-md max-h-48 overflow-auto">
               {members.map(m => (
@@ -168,7 +195,11 @@ export default function TreatmentsClient() {
               ))}
             </div>
           )}
-          {selectedMember && <div className="text-sm text-green-700">Member: {selectedMember.name} (Coverage {selectedMember.coveragePercent ?? 0}%)</div>}
+          {selectedMember && (
+            <div className="text-sm text-green-700 bg-green-50 p-2 rounded mt-2">
+              Selected: {selectedMember.name} (Code: {selectedMember.memberCode}, Coverage: {selectedMember.coveragePercent ?? 0}%)
+            </div>
+          )}
         </CardContent>
       </Card>
 

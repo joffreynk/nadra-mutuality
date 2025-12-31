@@ -13,66 +13,68 @@ const changePasswordAdminSchema = z.object({
   path: ["confirmNewPassword"],
 });
 
-export async function POST(req: Request, context: any) {
-  const { params } = context as { params: { id: string } };
+export async function POST(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session || session.user?.role !== 'HEALTH_OWNER') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const json = await req.formData();
   const data = Object.fromEntries(json.entries());
   const parsed = updateSchema.safeParse(data);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  const user = await prisma.user.update({ where: { id: params.id }, data: parsed.data });
+  
+  const user = await prisma.user.findUnique({
+    where: { id: params.id },
+    select: { id: true, organizationId: true }
+  });
+  
+  if (!user || user.organizationId !== session.user.organizationId) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+  
+  await prisma.user.update({ where: { id: params.id }, data: parsed.data });
   return NextResponse.redirect(new URL('/admin/users', req.url));
 }
 
-export async function PATCH(req: Request, context: any) {
-  const { params } = context as { params: { id: string } };
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session || session.user?.role !== 'HEALTH_OWNER') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   const json = await req.json();
-  const parsed = changePasswordAdminSchema.safeParse(json);
-
+  const parsed = updateSchema.safeParse(json);
+  
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
   }
-
-  const { newPassword } = parsed.data;
-
+  
   const user = await prisma.user.findUnique({
     where: { id: params.id },
+    select: { id: true, organizationId: true }
   });
-
-  if (!user) {
+  
+  if (!user || user.organizationId !== session.user.organizationId) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
-
-  const newPasswordHash = await bcrypt.hash(newPassword, 12);
-
+  
   await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash: newPasswordHash },
+    where: { id: params.id },
+    data: parsed.data,
   });
-
-  await prisma.auditLog.create({
-    data: {
-      organizationId: user.organizationId,
-      userId: session.user.id,
-      action: 'admin_user_password_change',
-      entityType: 'User',
-      entityId: user.id,
-      before: { username: user.username, email: user.email, role: user.role, passwordHash: '[OLD_HIDDEN]' },
-      after: { username: user.username, email: user.email, role: user.role, passwordHash: '[NEW_HIDDEN]' },
-    },
-  });
-
-  return NextResponse.json({ message: 'Password changed successfully' }, { status: 200 });
+  
+  return NextResponse.json({ message: 'User updated successfully' });
 }
 
-export async function DELETE(_req: Request, context: any) {
-  const { params } = context as { params: { id: string } };
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session || session.user?.role !== 'HEALTH_OWNER') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  const user = await prisma.user.findUnique({
+    where: { id: params.id },
+    select: { id: true, organizationId: true }
+  });
+  
+  if (!user || user.organizationId !== session.user.organizationId) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+  
   await prisma.user.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }

@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { parse } from 'path';
-import { log } from 'console';
 
 const categorySchema = z.object({
   name: z.string().min(1),
@@ -34,7 +32,7 @@ export async function PUT(req: Request) {
   const json = await req.json();
   const id = json?.data?.id;
   delete json.data.id;
-  const parsed = categorySchema.safeParse({name: json.data.name, coveragePercent: json.data.coveragePercent, price: json.data.price});
+  const parsed = categorySchema.safeParse({name: json.data.name, coveragePercent: json.data.coveragePercent, price: Number(json.data.price)});
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   const updated = await prisma.category.update({ where: { id }, data: parsed.data });
   return NextResponse.json(updated);

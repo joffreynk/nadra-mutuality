@@ -18,8 +18,48 @@ export async function GET() {
   if (!session || session.user?.role !== 'HEALTH_OWNER') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const users = await prisma.user.findMany({ where: { organizationId: session.user.organizationId } });
-  return NextResponse.json(users);
+  
+  const organizationId = session.user.organizationId;
+  
+  // Use database aggregation instead of fetching all records
+  // Get unique user IDs who have treatments (for HOSPITAL) - using distinct
+  const [hospitalUsers, pharmacyUsers, allUsers] = await Promise.all([
+    prisma.treatment.findMany({
+      where: { organizationId },
+      select: { usercreator: true },
+      distinct: ['usercreator'],
+    }),
+    prisma.pharmacyRequest.findMany({
+      where: { organizationId },
+      select: { usercreator: true },
+      distinct: ['usercreator'],
+    }),
+    prisma.user.findMany({
+      where: {
+        organizationId,
+        role: { in: ['HOSPITAL', 'PHARMACY'] },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        username: true,
+        role: true,
+      },
+    }),
+  ]);
+
+  const hasTreatment = new Set(hospitalUsers.map(t => t.usercreator).filter(Boolean));
+  const hasMedicine = new Set(pharmacyUsers.map(p => p.usercreator).filter(Boolean));
+
+  // Filter users: HOSPITAL must have treatments, PHARMACY must have pharmacy requests
+  const filtered = allUsers.filter(u => {
+    if (u.role === 'HOSPITAL') return hasTreatment.has(u.id);
+    if (u.role === 'PHARMACY') return hasMedicine.has(u.id);
+    return false;
+  });
+
+  return NextResponse.json(filtered);
 }
 
 export async function POST(req: Request) {
@@ -33,7 +73,12 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
 
   const existing = await prisma.user.findFirst({
-    where: { OR: [{ username: parsed.data.username }, ...(parsed.data.email ? [{ email: parsed.data.email }] : [])] as any }
+    where: { 
+      OR: [
+        { username: parsed.data.username },
+        ...(parsed.data.email ? [{ email: parsed.data.email }] : [])
+      ] as any 
+    }
   });
   if (existing) return NextResponse.json({ error: 'Username or email exists' }, { status: 409 });
 
@@ -41,7 +86,7 @@ export async function POST(req: Request) {
   const user = await prisma.user.create({
     data: {
       organizationId: session.user.organizationId,
-      name: parsed.data.name,
+      name: parsed.data.name ?? parsed.data.username,
       email: parsed.data.email ?? `${parsed.data.username}@example.local`,
       username: parsed.data.username,
       passwordHash,
@@ -62,5 +107,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json(user);
 }
-
-

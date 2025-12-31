@@ -4,7 +4,7 @@ import { Inter } from 'next/font/google';
 import OfflineProvider from '@/app/offline-provider';
 import AuthStatus from '@/components/AuthStatus';
 import SessionProvider from '@/components/SessionProvider';
-import Sidebar from '@/components/Sidebar';
+import LayoutClient from '@/components/LayoutClient';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,18 +20,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <SessionProvider>
           <div className="min-h-screen flex flex-col">
             <OfflineProvider />
-            <header className="border-b bg-white">
-              <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-                <div className="font-semibold text-xl">Nadra</div>
-                <AuthStatus />
+            <LayoutClient>
+              {children}
+            </LayoutClient>
+            <footer className="border-t bg-white mt-auto">
+              <div className="mx-auto max-w-6xl px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-500">
+                © {new Date().getFullYear()} nadra
               </div>
-            </header>
-            <div className="flex flex-1">
-              <Sidebar />
-              <main className="flex-1 px-4 py-6">{children}</main>
-            </div>
-            <footer className="border-t bg-white">
-              <div className="mx-auto max-w-6xl px-4 py-4 text-sm text-gray-500">© {new Date().getFullYear()} nadra</div>
             </footer>
           </div>
         </SessionProvider>
@@ -39,5 +34,3 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   );
 }
-
-
