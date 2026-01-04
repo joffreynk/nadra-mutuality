@@ -5,7 +5,8 @@ const nextConfig = {
       'react',
       'react-dom',
       '@prisma/client'
-    ]
+    ],
+    webpackBuildWorker: true,
   },
   images: {
     remotePatterns: [

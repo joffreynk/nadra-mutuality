@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: { name: string } 
   }
 }
 
-import { deleteFileByUrl } from '@/lib/uploads';
+import { deleteFileByUrl } from '@/lib/storage';
 
 export async function DELETE(request: Request) {
   try {
