@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { addMonths, differenceInMonths } from 'date-fns';
+import { Prisma } from '@prisma/client';
 
 const createMemberSchema = z.object({
   memberCode: z.string().min(5),
@@ -109,6 +110,10 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
+
+  const result = await prisma.$queryRaw`SHOW TABLES`;
+  console.log(result);
+
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const organizationId = session.user.organizationId;

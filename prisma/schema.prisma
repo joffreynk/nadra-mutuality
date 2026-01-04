@@ -7,59 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Organization {
-  id               String            @id @default(cuid())
-  name             String
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  users            User[]
-  members          Member[]
-  companies        Company[]
-  invoices         Invoice[]
-  auditLogs        AuditLog[]
-  documents        Document[]
-  systemSetting    SystemSetting?
-  categories       Category[]
-  treatments       Treatment[]
-  pharmacyRequestReceipts PharmacyRequestReceipt[]
-  pharmacyRequests PharmacyRequest[]
-
-}
-
-enum RoleType {
-  HEALTH_OWNER
-  WORKER
-  PHARMACY
-  HOSPITAL
-}
-
-model User {
-  id             String        @id @default(cuid())
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  email          String        @unique
-  username       String        @unique
-  name           String
-  passwordHash   String
-  role           RoleType      @default(WORKER)
-  failedLogins   Int           @default(0)
-  isLocked       Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  accounts       Account[]
-  sessions       Session[]
-  auditLogs      AuditLog[]
-  pharmacyAprovers  PharmacyRequestItem[]
-  receiptCreators PharmacyRequestReceipt[]
-  hospitalPharmacyCreators PharmacyRequest[]
-  hospitaltreaments Treatment[]
-  
-}
-
-model Account {
-  id                String  @id @default(cuid())
+model account {
+  id                String  @id
   userId            String
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   type              String
   provider          String
   providerAccountId String
@@ -70,212 +20,289 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
+  user              user    @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Account_userId_fkey")
 
-  @@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId], map: "Account_provider_providerAccountId_key")
+  @@index([userId], map: "Account_userId_fkey")
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expires      DateTime
+model auditlog {
+  id             String        @id
+  organizationId String?
+  userId         String?
+  action         String
+  entityType     String
+  entityId       String
+  before         String?       @db.LongText
+  after          String?       @db.LongText
+  ipAddress      String?
+  userAgent      String?
+  reason         String?
+  createdAt      DateTime      @default(now())
+  organization   organization? @relation(fields: [organizationId], references: [id], map: "AuditLog_organizationId_fkey")
+  user           user?         @relation(fields: [userId], references: [id], map: "AuditLog_userId_fkey")
+
+  @@index([organizationId], map: "AuditLog_organizationId_fkey")
+  @@index([userId], map: "AuditLog_userId_fkey")
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+model category {
+  id              String       @id
+  organizationId  String
+  name            String       @unique(map: "Category_name_key")
+  coveragePercent Int          @default(80)
+  price           Decimal?     @db.Decimal(10, 2)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime
+  organization    organization @relation(fields: [organizationId], references: [id], map: "Category_organizationId_fkey")
+  member          member[]
 
-  @@unique([identifier, token])
+  @@index([organizationId], map: "Category_organizationId_idx")
 }
 
-model Member {
-  id               String            @id @default(cuid())
-  organizationId   String
-  categoryID       String
-  category         Category          @relation(fields: [categoryID], references: [id])
-  organization     Organization      @relation(fields: [organizationId], references: [id])
-  memberCode       String            @unique
-  name             String
-  dob              DateTime?
-  contact          String?
-  email            String?
-  address          String?
-  idNumber         String?
-  passportPhotoUrl String?
-  isDependent      Boolean           @default(false)
-  familyRelationship     String?
-  gender           String?
-  country          String?
-  companyId        String?
-  company          Company?          @relation(fields: [companyId], references: [id])
-  status           String            @default("Active")
-  invoices         Invoice[]
-  endOfSubscription DateTime @default(dbgenerated("DATE_ADD(NOW(), INTERVAL 6 MONTH)"))
-  treatments       Treatment[]
-  Pharmacysrequests PharmacyRequest[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  deletedAt        DateTime?
-
-  @@index([organizationId])
-}
-
-model Invoice {
-  id             String       @id @default(cuid())
+model company {
+  id             String       @id
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  memberId       String?
-  member         Member?      @relation(fields: [memberId], references: [id])
-  period         Int
-  amount         Decimal      @db.Decimal(10, 2)
-  status         String       @default("Pending")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-}
-
-model Company {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
   name           String
   phoneNumber    String?
   email          String?
   address        String?
   createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  members        Member[]
+  updatedAt      DateTime
+  organization   organization @relation(fields: [organizationId], references: [id], map: "Company_organizationId_fkey")
+  member         member[]
+
+  @@index([organizationId], map: "Company_organizationId_fkey")
 }
 
-model AuditLog {
-  id             String        @id @default(cuid())
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  userId         String?
-  user           User?         @relation(fields: [userId], references: [id])
-  action         String
-  entityType     String
-  entityId       String
-  before         Json?
-  after          Json?
-  ipAddress      String?
-  userAgent      String?
-  reason         String?
-  createdAt      DateTime      @default(now())
-}
-
-model Document {
-  id             String       @id @default(cuid())
+model document {
+  id             String       @id
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
   ownerType      String
   ownerId        String
   filename       String
   mimeType       String
   size           Int
-  url            String // Changed from cloudinaryId to url
+  url            String
   createdAt      DateTime     @default(now())
+  organization   organization @relation(fields: [organizationId], references: [id], map: "Document_organizationId_fkey")
+
+  @@index([organizationId], map: "Document_organizationId_fkey")
 }
 
-model SystemSetting {
-  id                     String       @id @default(cuid())
-  organizationId         String       @unique
-  organization           Organization @relation(fields: [organizationId], references: [id])
-  systemName             String       @default("Nadra Healthcare Insurance")
-  location              String?      
-  phoneNumber           String?
-  email                  String?
-  logo                   String?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
-}
-
-model Category {
-  id              String       @id @default(cuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
-  name            String
-  coveragePercent Int          @default(80)
-  price           Decimal?     @db.Decimal(10, 2)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  members Member[]
-
-  @@unique([name])
-  @@index([organizationId])
-}
-
-
-model Treatment {
-  id                   String          @id @default(cuid())
-  organizationId       String
-  code String @unique
-  organization         Organization    @relation(fields: [organizationId], references: [id])
-  memberId             String
-  member               Member          @relation(fields: [memberId], references: [id])
-  receiptUrl           String? // Changed from receiptCloudinaryId to receiptUrl
-  treatments                TreatmentItem[]
-  usercreator       String
-  user         User     @relation(fields: [usercreator], references: [id], onDelete: Cascade)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-  tcode PharmacyRequest?
-}
-
-model TreatmentItem {
-  id                String           @id @default(cuid())
-  treatmentId       String
-  treatment         Treatment        @relation(fields: [treatmentId], references: [id])
-  treatmentName     String
-  quantity          Int              @default(1)
-  unitPrice         Decimal         @db.Decimal(10, 2)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-}
-
-
-
-model PharmacyRequest {
-  id                   String          @id @default(cuid())
-  organizationId       String
-  organization         Organization    @relation(fields: [organizationId], references: [id])
-  memberId             String
-  member               Member          @relation(fields: [memberId], references: [id])
-  code String @unique
-  tcodes Treatment @relation(fields: [code], references:[code])
-  usercreator       String
-  user         User     @relation(fields: [usercreator], references: [id], onDelete: Cascade)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-  pharmacyRequests PharmacyRequestItem[]
-  pharmacyRequestReceipts PharmacyRequestReceipt[]
-}
-
-model PharmacyRequestItem {
-  id                String           @id @default(cuid())
-  mdecineName       String
-  quantity          Int              @default(1)
-  unitPrice         Decimal?         @db.Decimal(10, 2)
+model invoice {
+  id             String       @id
+  organizationId String
+  memberId       String?
+  amount         Decimal      @db.Decimal(10, 2)
   status         String       @default("Pending")
-  pharmacyRequestId      String
-  pharmacyRequest         PharmacyRequest        @relation(fields: [pharmacyRequestId], references: [id])
-  userAproverId       String?
-  user         User?     @relation(fields: [userAproverId], references: [id], onDelete: Cascade)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  period         Int
+  member         member?      @relation(fields: [memberId], references: [id], map: "Invoice_memberId_fkey")
+  organization   organization @relation(fields: [organizationId], references: [id], map: "Invoice_organizationId_fkey")
+
+  @@index([memberId], map: "Invoice_memberId_fkey")
+  @@index([organizationId], map: "Invoice_organizationId_fkey")
 }
 
-model PharmacyRequestReceipt{
-  id                String           @id @default(cuid())
-  organizationId       String
-  organization         Organization    @relation(fields: [organizationId], references: [id])
+model member {
+  id                 String            @id
+  organizationId     String
+  memberCode         String            @unique(map: "Member_memberCode_key")
+  name               String
+  dob                DateTime?
+  contact            String?
+  email              String?
+  address            String?
+  idNumber           String?
+  passportPhotoUrl   String?
+  isDependent        Boolean           @default(false)
+  familyRelationship String?
+  gender             String?
+  country            String?
+  companyId          String?
+  status             String            @default("Active")
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime
+  deletedAt          DateTime?
+  categoryID         String
+  endOfSubscription  DateTime          @default(dbgenerated("(current_timestamp() + interval 6 month)"))
+  invoice            invoice[]
+  category           category          @relation(fields: [categoryID], references: [id], map: "Member_categoryID_fkey")
+  company            company?          @relation(fields: [companyId], references: [id], map: "Member_companyId_fkey")
+  organization       organization      @relation(fields: [organizationId], references: [id], map: "Member_organizationId_fkey")
+  pharmacyrequest    pharmacyrequest[]
+  treatment          treatment[]
+
+  @@index([categoryID], map: "Member_categoryID_fkey")
+  @@index([companyId], map: "Member_companyId_fkey")
+  @@index([organizationId], map: "Member_organizationId_idx")
+}
+
+model organization {
+  id                     String                   @id
+  name                   String
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  auditlog               auditlog[]
+  category               category[]
+  company                company[]
+  document               document[]
+  invoice                invoice[]
+  member                 member[]
+  pharmacyrequest        pharmacyrequest[]
+  pharmacyrequestreceipt pharmacyrequestreceipt[]
+  systemsetting          systemsetting?
+  treatment              treatment[]
+  user                   user[]
+}
+
+model pharmacyrequest {
+  id                     String                   @id
+  organizationId         String
+  memberId               String
+  code                   String                   @unique(map: "PharmacyRequest_code_key")
+  usercreator            String
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  treatment              treatment                @relation(fields: [code], references: [code], map: "PharmacyRequest_code_fkey")
+  member                 member                   @relation(fields: [memberId], references: [id], map: "PharmacyRequest_memberId_fkey")
+  organization           organization             @relation(fields: [organizationId], references: [id], map: "PharmacyRequest_organizationId_fkey")
+  user                   user                     @relation(fields: [usercreator], references: [id], onDelete: Cascade, map: "PharmacyRequest_usercreator_fkey")
+  pharmacyrequestitem    pharmacyrequestitem[]
+  pharmacyrequestreceipt pharmacyrequestreceipt[]
+
+  @@index([memberId], map: "PharmacyRequest_memberId_fkey")
+  @@index([organizationId], map: "PharmacyRequest_organizationId_fkey")
+  @@index([usercreator], map: "PharmacyRequest_usercreator_fkey")
+}
+
+model pharmacyrequestitem {
+  id                String          @id
+  mdecineName       String
+  quantity          Int             @default(1)
+  unitPrice         Decimal?        @db.Decimal(10, 2)
+  status            String          @default("Pending")
+  pharmacyRequestId String
+  userAproverId     String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime
+  pharmacyrequest   pharmacyrequest @relation(fields: [pharmacyRequestId], references: [id], map: "PharmacyRequestItem_pharmacyRequestId_fkey")
+  user              user?           @relation(fields: [userAproverId], references: [id], onDelete: Cascade, map: "PharmacyRequestItem_userAproverId_fkey")
+
+  @@index([pharmacyRequestId], map: "PharmacyRequestItem_pharmacyRequestId_fkey")
+  @@index([userAproverId], map: "PharmacyRequestItem_userAproverId_fkey")
+}
+
+model pharmacyrequestreceipt {
+  id                String          @id
+  organizationId    String
+  userId            String
+  pharmacyRequestId String
+  url               String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime
+  organization      organization    @relation(fields: [organizationId], references: [id], map: "PharmacyRequestReceipt_organizationId_fkey")
+  pharmacyrequest   pharmacyrequest @relation(fields: [pharmacyRequestId], references: [id], map: "PharmacyRequestReceipt_pharmacyRequestId_fkey")
+  user              user            @relation(fields: [userId], references: [id], onDelete: Cascade, map: "PharmacyRequestReceipt_userId_fkey")
+
+  @@unique([userId, pharmacyRequestId], map: "PharmacyRequestReceipt_userId_pharmacyRequestId_key")
+  @@index([organizationId], map: "PharmacyRequestReceipt_organizationId_fkey")
+  @@index([pharmacyRequestId], map: "PharmacyRequestReceipt_pharmacyRequestId_fkey")
+}
+
+model session {
+  id           String   @id
+  sessionToken String   @unique(map: "Session_sessionToken_key")
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  pharmacyRequestId      String
-  pharmacyRequest         PharmacyRequest        @relation(fields: [pharmacyRequestId], references: [id])
-  url String
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-  @@unique([userId, pharmacyRequestId])
+  expires      DateTime
+  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "Session_userId_fkey")
+
+  @@index([userId], map: "Session_userId_fkey")
+}
+
+model systemsetting {
+  id             String       @id
+  organizationId String       @unique(map: "SystemSetting_organizationId_key")
+  systemName     String       @default("Nadra Healthcare Insurance")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  email          String?
+  location       String?
+  phoneNumber    String?
+  logo           String?
+  organization   organization @relation(fields: [organizationId], references: [id], map: "SystemSetting_organizationId_fkey")
+}
+
+model treatment {
+  id              String           @id
+  organizationId  String
+  code            String           @unique(map: "Treatment_code_key")
+  memberId        String
+  receiptUrl      String?
+  usercreator     String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  pharmacyrequest pharmacyrequest?
+  member          member           @relation(fields: [memberId], references: [id], map: "Treatment_memberId_fkey")
+  organization    organization     @relation(fields: [organizationId], references: [id], map: "Treatment_organizationId_fkey")
+  user            user             @relation(fields: [usercreator], references: [id], onDelete: Cascade, map: "Treatment_usercreator_fkey")
+  treatmentitem   treatmentitem[]
+
+  @@index([memberId], map: "Treatment_memberId_fkey")
+  @@index([organizationId], map: "Treatment_organizationId_fkey")
+  @@index([usercreator], map: "Treatment_usercreator_fkey")
+}
+
+model treatmentitem {
+  id            String    @id
+  treatmentId   String
+  treatmentName String
+  quantity      Int       @default(1)
+  unitPrice     Decimal   @db.Decimal(10, 2)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  treatment     treatment @relation(fields: [treatmentId], references: [id], map: "TreatmentItem_treatmentId_fkey")
+
+  @@index([treatmentId], map: "TreatmentItem_treatmentId_fkey")
+}
+
+model user {
+  id                     String                   @id
+  organizationId         String?
+  email                  String                   @unique(map: "User_email_key")
+  username               String                   @unique(map: "User_username_key")
+  name                   String
+  passwordHash           String
+  role                   user_role                @default(WORKER)
+  failedLogins           Int                      @default(0)
+  isLocked               Boolean                  @default(false)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  account                account[]
+  auditlog               auditlog[]
+  pharmacyrequest        pharmacyrequest[]
+  pharmacyrequestitem    pharmacyrequestitem[]
+  pharmacyrequestreceipt pharmacyrequestreceipt[]
+  session                session[]
+  treatment              treatment[]
+  organization           organization?            @relation(fields: [organizationId], references: [id], map: "User_organizationId_fkey")
+
+  @@index([organizationId], map: "User_organizationId_fkey")
+}
+
+model verificationtoken {
+  identifier String
+  token      String   @unique(map: "VerificationToken_token_key")
+  expires    DateTime
+
+  @@unique([identifier, token], map: "VerificationToken_identifier_token_key")
+}
+
+enum user_role {
+  HEALTH_OWNER
+  WORKER
+  PHARMACY
+  HOSPITAL
 }
